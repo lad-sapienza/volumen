@@ -1,0 +1,9 @@
+{
+  "id": "volumen",
+  "name": "Volumen by LAD",
+  "version": "0.1.0",
+  "minAppVersion": "1.5.0",
+  "description": "Impagina un volume (PDF con Typst, DOCX) dai capitoli Markdown del vault, secondo la nota volume.md.",
+  "author": "Julian Bogdani",
+  "isDesktopOnly": true
+}

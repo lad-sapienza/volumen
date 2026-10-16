@@ -1,0 +1,46 @@
+# Output e dati generati
+data/*
+out/*
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Ambienti virtuali
+.venv/
+venv/
+env/
+
+# Variabili d'ambiente / segreti locali
+.env
+.env.*
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+
+# Editor / IDE
+.idea/
+.vscode/
+*.swp
+*~
+
+# File temporanei di Word/LibreOffice
+~$*
+.~lock.*#
+.directus_token
+.volume
+
+# Estensione di sincronizzazione con Directus (specifica del progetto Cuka e Ajtoit, non pubblica)
+volumen/ext/
+example/**/out/

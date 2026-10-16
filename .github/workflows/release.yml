@@ -1,0 +1,21 @@
+# Alla pubblicazione di un tag vX.Y.Z compila il plugin e allega main.js e manifest.json alla release
+# (come richiede Obsidian): chi installa il plugin non ha bisogno di Node.
+name: Release plugin
+on:
+  push:
+    tags: ["v*"]
+permissions:
+  contents: write
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: {node-version: 22}
+      - name: Build
+        working-directory: obsidian-plugin
+        run: npm ci && npm run build
+      - name: Release
+        env: {GH_TOKEN: "${{ github.token }}"}
+        run: gh release create "${GITHUB_REF_NAME}" obsidian-plugin/main.js obsidian-plugin/manifest.json --generate-notes

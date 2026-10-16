@@ -1,0 +1,4 @@
+python-docx>=1.2   # commenti Word (add_comment)
+pillow
+pyyaml
+pymupdf           # annotazioni PDF (--annotations)
