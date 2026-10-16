@@ -115,7 +115,7 @@ def main(argv=None, default_format="typst"):
     cfg, vol_path, vol, base_dir = load_project(args)
     acfg = cfg.get("annotations", {})
     model.ANNOT.update(enabled=bool(args.annotations or acfg.get("enabled")),
-                       author=acfg.get("author", "Autore"), initials=acfg.get("initials", ""),
+                       author=acfg.get("author", "Author"), initials=acfg.get("initials", ""),
                        color=acfg.get("color", model.ANNOT["color"]), items=[],
                        suggestions="reject" if acfg.get("suggestions") == "reject" else "accept")
     out_dir = output_dir(args, vol, base_dir)

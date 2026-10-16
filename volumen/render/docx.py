@@ -307,7 +307,7 @@ def track_change(par, runs, deleted):
     TRACK_ID[0] += 1
     wrap = OxmlElement("w:del" if deleted else "w:ins")
     wrap.set(qn("w:id"), str(TRACK_ID[0]))
-    wrap.set(qn("w:author"), model.ANNOT["author"] or "Autore")
+    wrap.set(qn("w:author"), model.ANNOT["author"] or "Author")
     wrap.set(qn("w:date"), datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"))
     runs[0]._r.addprevious(wrap)
     for r in runs:
