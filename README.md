@@ -10,7 +10,7 @@ The engine reads only Markdown files: no network, no database. A folder of Markd
 composed as a catalogue of entries.
 
 A complete volume to try right away is in [`example/`](example/md/volume.md) (Samuel Butler's 1900 translation of the
-*Odyssey*, public domain): `python3 -m volumen --volume example/md/volume.md`. The result is in [`example/odyssey.pdf`](example/odyssey.pdf).
+*Odyssey*, public domain): `python3 -m volumen --volume example/md/volume.md`. The result ([`example/odyssey.pdf`](example/odyssey.pdf), also attached to the [release](https://github.com/lad-sapienza/volumen/releases/download/v0.1.0/odyssey.pdf)) can be previewed without installing anything.
 
 ## Structure
 
