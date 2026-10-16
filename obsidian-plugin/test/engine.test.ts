@@ -8,29 +8,29 @@ import { buildArgs, chapterForFile, childEnv, detectEngineDir, findBinary, listC
 
 const settings = { python: process.env.VOLUMEN_PYTHON || "python3", engineDir: path.resolve(__dirname, "../.."), extraPath: "/opt/homebrew/bin" };
 
-test("buildArgs: volume, formato, capitoli, annotazioni", () => {
+test("buildArgs: volume, format, chapters, annotations", () => {
   assert.deepEqual(
     buildArgs({ volume: "/v/volume.md", format: "typst", chapters: ["5.2", "6"], annotations: true }),
     ["-m", "volumen", "--json", "--volume", "/v/volume.md", "--format", "typst", "--chapter", "5.2", "6", "--annotations"]);
   assert.deepEqual(buildArgs({ volume: "/v/volume.md", format: "docx" }).slice(-2), ["--format", "docx"]);
 });
 
-test("childEnv: prima il PATH indicato, poi quello ereditato, poi le cartelle note che esistono; senza duplicati", () => {
+test("childEnv: configured PATH first, then the inherited one, then the well-known folders that exist; no duplicates", () => {
   const env = childEnv(settings, { PATH: "/usr/bin:/opt/homebrew/bin" }, (d) => d === "/opt/homebrew/bin" || d === "/Library/TeX/texbin");
   assert.equal(env.PATH, "/opt/homebrew/bin:/usr/bin:/Library/TeX/texbin");
   assert.equal(env.PYTHONUTF8, "1");
 });
 
-test("findBinary: trova un eseguibile nel PATH e ignora i file non eseguibili", () => {
+test("findBinary: finds an executable on the PATH and ignores non-executable files", () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "vol-bin-"));
   fs.writeFileSync(path.join(dir, "tool"), "#!/bin/sh\n", { mode: 0o755 });
   fs.writeFileSync(path.join(dir, "noexec"), "x", { mode: 0o644 });
   assert.equal(findBinary("tool", { PATH: dir }), path.join(dir, "tool"));
   assert.equal(findBinary("noexec", { PATH: dir }), null);
-  assert.equal(findBinary("assente", { PATH: dir }), null);
+  assert.equal(findBinary("missing", { PATH: dir }), null);
 });
 
-test("detectEngineDir: dal plugin (anche tramite link simbolico) risale al repo con il pacchetto volumen", () => {
+test("detectEngineDir: from the plugin (also through a symlink) up to the repo containing the volumen package", () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "vol-repo-"));
   fs.mkdirSync(path.join(root, "volumen"));
   fs.writeFileSync(path.join(root, "volumen", "__init__.py"), "");
@@ -42,7 +42,7 @@ test("detectEngineDir: dal plugin (anche tramite link simbolico) risale al repo 
   assert.equal(detectEngineDir(os.tmpdir()), null);
 });
 
-test("pythonCandidates: quello indicato per primo, poi python3, nessun duplicato", () => {
+test("pythonCandidates: the configured one first, then python3, no duplicates", () => {
   const c = pythonCandidates("/x/python3", "/nonexistent-home");
   assert.equal(c[0], "/x/python3");
   assert.equal(c[1], "python3");
@@ -50,43 +50,43 @@ test("pythonCandidates: quello indicato per primo, poi python3, nessun duplicato
   assert.ok(c.includes("/opt/homebrew/bin/python3"));
 });
 
-test("probeEnvironment: un Python indicato a mano ma inesistente non viene sostituito di nascosto", async () => {
-  const r = await probeEnvironment({ python: "/non/esiste/python3", engineDir: settings.engineDir, extraPath: "" }, null);
+test("probeEnvironment: a manually configured but non-existent Python is not silently replaced", async () => {
+  const r = await probeEnvironment({ python: "/does/not/exist/python3", engineDir: settings.engineDir, extraPath: "" }, null);
   assert.equal(r.python, null);
   assert.equal(r.ok, false);
   assert.ok(r.problems.some((p) => /Python/.test(p)));
 });
 
-test("probeEnvironment: rilevamento automatico del motore reale", { skip: !process.env.VOLUMEN_TEST_VOLUME }, async () => {
+test("probeEnvironment: automatic detection of the real engine", { skip: !process.env.VOLUMEN_TEST_VOLUME }, async () => {
   const r = await probeEnvironment({ python: "", engineDir: "", extraPath: "" }, path.join(settings.engineDir, "obsidian-plugin"));
   assert.equal(r.ok, true, r.problems.join("; "));
   assert.ok(r.python && r.typst && r.pandoc);
 });
 
-test("chapterForFile: file di un capitolo e file dentro una cartella source=", () => {
+test("chapterForFile: a chapter file and a file inside a source= folder", () => {
   const rows = [
     { id: "1", title: "A", source: "markdown", depth: 0, file: "/v/md/a.md", dir: null },
     { id: "5.2", title: "Cat", source: "folder", depth: 1, file: null, dir: "complexes" },
   ];
   assert.equal(chapterForFile(rows, "/v/md/a.md", "/v/md")?.id, "1");
   assert.equal(chapterForFile(rows, "/v/md/complexes/F1-01.md", "/v/md")?.id, "5.2");
-  assert.equal(chapterForFile(rows, "/v/md/altro.md", "/v/md"), undefined);
+  assert.equal(chapterForFile(rows, "/v/md/other.md", "/v/md"), undefined);
 });
 
-// integrazione con il motore reale: serve VOLUMEN_TEST_VOLUME (percorso di volume.md)
+// integration with the real engine: needs VOLUMEN_TEST_VOLUME (path of volume.md)
 const volume = process.env.VOLUMEN_TEST_VOLUME;
-test("motore reale: elenco capitoli e impaginazione di un capitolo", { skip: !volume }, async () => {
+test("real engine: chapter list and typesetting of one chapter", { skip: !volume }, async () => {
   const { chapters } = await listChapters(settings, volume!);
   assert.ok(chapters.length > 3 && chapters.every((c) => typeof c.id === "string"));
   const first = chapters.find((c) => c.file);
-  assert.ok(first, "almeno un capitolo con file");
+  assert.ok(first, "at least one chapter with a file");
   const out = path.join(require("os").tmpdir(), "volumen-plugin-test");
   const res = await runEngine<BuildResult>(settings, buildArgs({ volume: volume!, format: "typst", chapters: [first!.id], out }));
   assert.equal(res.ok, true);
   assert.ok(res.pdf && res.pdf.endsWith(".pdf"));
 });
 
-test("errore del motore: volume inesistente -> EngineError con messaggio", async () => {
-  await assert.rejects(runEngine(settings, buildArgs({ volume: "/non/esiste/volume.md", format: "typst" })),
-    (e: any) => e.name === "Error" && /Nota del volume non trovata/.test(e.stderr));
+test("engine error: non-existent volume -> EngineError with message", async () => {
+  await assert.rejects(runEngine(settings, buildArgs({ volume: "/does/not/exist/volume.md", format: "typst" })),
+    (e: any) => e.name === "Error" && /Volume note not found/.test(e.stderr));
 });

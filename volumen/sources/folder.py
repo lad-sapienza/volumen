@@ -31,7 +31,7 @@ def prefix_of(cid, tokens=()):
 
 def cards_dir(ch, base_dir):
     if not ch.get("dir"):
-        sys.exit(f"Capitolo {ch.get('id')!r}: manca 'dir' (source: folder)")
+        sys.exit(f"Chapter {ch.get('id')!r}: 'dir' is missing (source: folder)")
     return resolve_path(ch["dir"], ch, base_dir, "markdown_dir")
 
 
@@ -68,19 +68,19 @@ def select_cards(cards, ch):
     for cid in cards:
         ser = prefix_of(cid, tokens)
         if cid in exc_ids:
-            reason = "escluso da volume.md (exclude)"
+            reason = "excluded by volume.md (exclude)"
         elif cid in inc:
             reason = None
         elif ser in excl:
-            reason = "fuori scopo (serie esclusa)"
+            reason = "out of scope (series excluded)"
         elif by_series and (ser is None or ser not in order):
-            reason = "serie non prevista"
+            reason = "series not listed"
         else:
             reason = None
         (excluded.append((cid, reason)) if reason else included.append(cid))
     for cid in list(inc) + first:
         if cid not in cards:
-            excluded.append((cid, "indicato in volume.md ma senza scheda"))
+            excluded.append((cid, "listed in volume.md but has no file"))
     first = [c for c in first if c in included]
     def key(cid):
         ser = prefix_of(cid, tokens)
@@ -114,7 +114,7 @@ def load_chapter(cfg, ch, base_dir, an, only=None):
     cid = str(ch.get("id", ""))
     folder = cards_dir(ch, base_dir)
     if not folder.is_dir():
-        sys.exit(f"Capitolo {cid!r}: cartella delle schede non trovata: {folder} (lancia `python -m volumen sync`)")
+        sys.exit(f"Chapter {cid!r}: folder not found: {folder}")
     cards = read_cards(folder, ch.get("id_field"))
     chosen, excluded = select_cards(cards, ch)
     if only:

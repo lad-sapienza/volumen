@@ -154,7 +154,7 @@ def resolve_refs(blocks, labels, cid, fname, an):
             ident, shown = m.group(1), m.group(2)
             if ident in labels:
                 return labels[ident]
-            an.add(cid, "riferimento interno non risolto", fname, f"#{ident} ({shown[:30]})")
+            an.add(cid, "unresolved internal reference", fname, f"#{ident} ({shown[:30]})")
             return shown
         return pat.sub(one, text)
 
@@ -187,8 +187,8 @@ def find_image(name, dirs):
 def group_end_figures(blocks, ch):
     """Figure con `group=end` (fine sezione) consecutive -> FigureGroup."""
     if ch.get("end_images_placement", "after_item") == "figures_section":
-        print("Nota: end_images_placement=figures_section non e' supportato "
-              "(le figure di fine sezione restano dove sono).", file=sys.stderr)
+        print("Note: end_images_placement=figures_section is not supported "
+              "(end-of-section figures stay where they are).", file=sys.stderr)
     out, run = [], []
     for b in blocks:
         if isinstance(b, model.Figure) and b.group == "end":
@@ -208,11 +208,11 @@ def load_chapter(cfg, ch, base_dir, an, text=None, md_path=None):
     cid = str(ch.get("id", ""))
     if text is None:
         if not ch.get("file"):
-            sys.exit(f"Capitolo {cid!r}: manca 'file' (source: markdown)")
+            sys.exit(f"Chapter {cid!r}: 'file' is missing (source: markdown)")
         md_path = resolve_path(ch["file"], ch, base_dir, "markdown_dir")
     if text is None and not md_path.exists():
         # il capitolo resta nel volume con il solo titolo, e il file mancante e' segnalato
-        an.add(cid, "file Markdown mancante", "file", str(md_path))
+        an.add(cid, "Markdown file missing", "file", str(md_path))
         return model.Chapter(cid, ch.get("title", cid),
                              [model.Heading(int(ch.get("base_level", ch.get("chapter_level", 1))),
                                             str(ch.get("title") or cid))],
@@ -223,7 +223,7 @@ def load_chapter(cfg, ch, base_dir, an, text=None, md_path=None):
         def one(m):
             v = ch["vars"].get(m.group(1))
             if v is None:
-                an.add(cid, "variabile {{..}} non definita in volume.md", md_path.name, m.group(0))
+                an.add(cid, "variable {{..}} not defined in volume.md", md_path.name, m.group(0))
                 return m.group(0)
             return str(v)
         body = VAR.sub(one, body)
@@ -308,7 +308,7 @@ def load_chapter(cfg, ch, base_dir, an, text=None, md_path=None):
             aligns = (column_aligns(lines[1]) + ["left"] * len(header))[:len(header)]
             blocks.append(model.Table(header, rows, column_ratios(header, rows), aligns))
         else:
-            an.add(cid, "tabella Markdown non riconosciuta (manca la riga ---)", md_path.name, lines[0][:40])
+            an.add(cid, "Markdown table not recognized (the --- row is missing)", md_path.name, lines[0][:40])
             cur.extend(x.strip() for x in lines)
 
     def flush_list():
@@ -331,7 +331,7 @@ def load_chapter(cfg, ch, base_dir, an, text=None, md_path=None):
             stem = Path(target).stem
             cid_ = chapter_ids.get(stem)
             if cid_ is None:
-                an.add(cid, "link a capitolo non risolto", md_path.name, f"({target})")
+                an.add(cid, "unresolved chapter link", md_path.name, f"({target})")
                 return shown or stem
             if "{nr}" in shown:
                 label = shown.replace("{nr}", cid_)
@@ -339,7 +339,7 @@ def load_chapter(cfg, ch, base_dir, an, text=None, md_path=None):
                 label = cid_ if shown in ("", stem, target, Path(target).name) else f"{shown} {cid_}"
             return f"{model.LINK_OPEN}{cid_}|{label}{model.LINK_CLOSE}"
         for m in BARE_LINK.finditer(text):
-            an.add(cid, "link senza estensione .md", md_path.name, f"({m.group(2)}): scrivere ({m.group(2)}.md)")
+            an.add(cid, "link without .md extension", md_path.name, f"({m.group(2)}): write ({m.group(2)}.md)")
         return MDLINK.sub(one, text) if ".md" in text else text
 
     def prep(text):
@@ -349,7 +349,7 @@ def load_chapter(cfg, ch, base_dir, an, text=None, md_path=None):
         def note(m):
             key = m.group(1)
             if key not in note_defs:
-                an.add(cid, "nota non definita", md_path.name, f"[^{key}]")
+                an.add(cid, "undefined footnote", md_path.name, f"[^{key}]")
                 return ""
             used_notes.add(key)
             body_ = prep_note(note_defs[key])
@@ -403,7 +403,7 @@ def load_chapter(cfg, ch, base_dir, an, text=None, md_path=None):
             flush_list()
             classes, attrs = styled.parse_attrs(dm.group(1))
             div = (styled.resolve(cfg, classes, attrs,
-                                  warn=lambda msg: an.add(cid, "stile personalizzato", md_path.name, msg)), [])
+                                  warn=lambda msg: an.add(cid, "custom style", md_path.name, msg)), [])
             continue
         if ch.get("pages") and raw.strip() == "---":
             flush_table()
@@ -427,7 +427,7 @@ def load_chapter(cfg, ch, base_dir, an, text=None, md_path=None):
         if tk and blocks and isinstance(blocks[-1], model.Table) and not blocks[-1].klass:
             blocks[-1].klass = tk.group(1)      # `{.nome}` dopo la tabella: stile da config table.classes.<nome>
             if tk.group(1) not in cfg.get("table", {}).get("classes", {}):
-                an.add(cid, "classe di tabella non definita nello stile di volume.md (table.classes)", md_path.name, tk.group(1))
+                an.add(cid, "table class not defined in the style of volume.md (table.classes)", md_path.name, tk.group(1))
             continue
         cm = TABLE_CAPTION.match(line.strip())
         if cm and blocks and isinstance(blocks[-1], model.Table) and not blocks[-1].caption:
@@ -473,10 +473,10 @@ def load_chapter(cfg, ch, base_dir, an, text=None, md_path=None):
             ids = LABEL_ID.findall(" ".join(ANCHOR.findall(img.group(1))) + " " + (img.group(3) or ""))
             cap, name = ANCHOR.sub("", img.group(1)).strip(), img.group(2).strip()
             if re.match(r"(?i)^fig(?:ure|\.)?\s*\d", cap):
-                an.add(cid, "didascalia gia' numerata (verra' aggiunta un'altra etichetta)", md_path.name, cap[:40])
+                an.add(cid, "caption already numbered (another label will be added)", md_path.name, cap[:40])
             p = find_image(name, search)
             if p is None:
-                an.add(cid, "immagine mancante", md_path.name, name)
+                an.add(cid, "missing image", md_path.name, name)
                 continue
             if front:                      # immagine di frontespizio: senza numero ne' didascalia
                 a = parse_attrs(img.group(3))
@@ -492,7 +492,7 @@ def load_chapter(cfg, ch, base_dir, an, text=None, md_path=None):
                                            align=a.get("align") or div_align or "center"))
                 continue
             if not cap:
-                an.add(cid, "didascalia vuota", md_path.name, name)
+                an.add(cid, "empty caption", md_path.name, name)
             num = f"Fig. {prefix}.{next(fig_counter)}"
             for i in ids:
                 labels[i] = num
@@ -500,12 +500,12 @@ def load_chapter(cfg, ch, base_dir, an, text=None, md_path=None):
             attrs = parse_attrs(img.group(3))
             pos = attrs.get("position") or attrs.get("pos")
             if pos and pos not in ("auto", "top", "bottom", "column", "left", "right"):
-                an.add(cid, "attributo position non valido (auto|top|bottom|column|left|right)",
+                an.add(cid, "invalid position attribute (auto|top|bottom|column|left|right)",
                        md_path.name, f"{name}: {pos}")
                 pos = None
             klass = attrs.get("class") or attrs.get("role")      # `role=` e' il nome storico di `class=`
             if klass and klass not in icfg_classes:
-                an.add(cid, "classe di figura non definita nello stile di volume.md (images.classes)", md_path.name,
+                an.add(cid, "figure class not defined in the style of volume.md (images.classes)", md_path.name,
                        f"{name}: {klass}")
                 klass = None
             blocks.append(model.Figure(p, f"{label} {cap}" if cap else label,
@@ -516,14 +516,14 @@ def load_chapter(cfg, ch, base_dir, an, text=None, md_path=None):
         else:
             cur.append(line.strip())
     if div is not None:
-        an.add(cid, "blocco ::: non chiuso", md_path.name, "manca la riga ':::' finale")
+        an.add(cid, "unclosed ::: block", md_path.name, "the final ':::' line is missing")
         close_div()
     flush_table()
     flush_quote()
     flush_list()
     flush_text()
     for key in set(note_defs) - used_notes:
-        an.add(cid, "nota definita ma mai citata", md_path.name, f"[^{key}]")
+        an.add(cid, "footnote defined but never cited", md_path.name, f"[^{key}]")
     resolve_refs(blocks, labels, cid, md_path.name, an)
     blocks = group_end_figures(blocks, ch)
     raw = meta.get("authors") or meta.get("author") or ch.get("authors") or []

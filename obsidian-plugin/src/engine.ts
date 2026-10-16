@@ -1,19 +1,19 @@
-// Chiamata al motore Python (`python -m volumen`): nessuna dipendenza da Obsidian, cosi' si prova da Node.
+// Calls the Python engine (`python -m volumen`): no dependency on Obsidian, so it can be tested from Node.
 import { spawn } from "child_process";
 import * as fs from "fs";
 import * as os from "os";
 import * as path from "path";
 
 export interface EngineSettings {
-  python: string;          // eseguibile Python con le dipendenze di requirements.txt ("" = rilevamento automatico)
-  engineDir: string;       // cartella del progetto che contiene il pacchetto `volumen` ("" = automatica)
-  extraPath: string;       // cartelle da aggiungere al PATH oltre a quelle note (typst, pandoc, gs)
+  python: string;          // Python executable with the dependencies of requirements.txt ("" = automatic detection)
+  engineDir: string;       // project folder containing the `volumen` package ("" = automatic)
+  extraPath: string;       // folders to add to the PATH besides the well-known ones (typst, pandoc, gs)
 }
 
-/** Cartelle dove di solito stanno typst, pandoc e gs; si aggiungono al PATH se esistono. */
+/** Folders where typst, pandoc and gs usually live; added to the PATH if they exist. */
 export const WELL_KNOWN_BIN_DIRS = [
   "/opt/homebrew/bin",      // Homebrew (Apple Silicon)
-  "/usr/local/bin",         // Homebrew (Intel) e installazioni manuali
+  "/usr/local/bin",         // Homebrew (Intel) and manual installs
   "/opt/local/bin",         // MacPorts
   "/Library/TeX/texbin",    // MacTeX / BasicTeX
   "/usr/bin",
@@ -21,12 +21,12 @@ export const WELL_KNOWN_BIN_DIRS = [
 ];
 
 export interface BuildOptions {
-  volume: string;                  // percorso assoluto di volume.md
+  volume: string;                  // absolute path of volume.md
   format: "typst" | "docx";
-  chapters?: string[];             // id dei capitoli (--chapter)
+  chapters?: string[];             // chapter ids (--chapter)
   annotations?: boolean;           // --annotations
-  validate?: boolean;              // --validate: controlla senza impaginare
-  typstSource?: boolean;           // --no-pdf --keep-typ: solo il sorgente .typ
+  validate?: boolean;              // --validate: check without typesetting
+  typstSource?: boolean;           // --no-pdf --keep-typ: only the .typ source
   out?: string;                    // --out
   name?: string;                   // --name
 }
@@ -72,7 +72,7 @@ export function buildArgs(o: BuildOptions): string[] {
   return a;
 }
 
-/** PATH del processo figlio: le cartelle indicate, quello ereditato, poi le cartelle note che esistono. */
+/** PATH of the child process: the given folders, the inherited one, then the well-known folders that exist. */
 export function childEnv(s: EngineSettings, base: NodeJS.ProcessEnv = process.env,
                          dirExists: (d: string) => boolean = fs.existsSync): NodeJS.ProcessEnv {
   const split = (v: string) => v.split(path.delimiter).map((x) => x.trim()).filter(Boolean);
@@ -80,19 +80,19 @@ export function childEnv(s: EngineSettings, base: NodeJS.ProcessEnv = process.en
   return { ...base, PATH: [...new Set(parts)].join(path.delimiter), PYTHONIOENCODING: "utf-8", PYTHONUTF8: "1" };
 }
 
-/** Primo eseguibile `name` nelle cartelle del PATH, o null. */
+/** First executable `name` in the PATH folders, or null. */
 export function findBinary(name: string, env: NodeJS.ProcessEnv): string | null {
   for (const dir of (env.PATH || "").split(path.delimiter).filter(Boolean)) {
     const f = path.join(dir, name);
     try {
       fs.accessSync(f, fs.constants.X_OK);
       if (fs.statSync(f).isFile()) return f;
-    } catch { /* non c'e' */ }
+    } catch { /* not there */ }
   }
   return null;
 }
 
-/** La cartella del progetto a partire dalla cartella del plugin (se e' un link al repo: il genitore). */
+/** The project folder, starting from the plugin folder (if it is a link to the repo: its parent). */
 export function detectEngineDir(pluginDir: string): string | null {
   try {
     const candidate = path.resolve(fs.realpathSync(pluginDir), "..");
@@ -102,7 +102,7 @@ export function detectEngineDir(pluginDir: string): string | null {
   }
 }
 
-/** Interpreti Python da provare, nell'ordine: quello indicato, python3 nel PATH, pyenv, Homebrew, sistema. */
+/** Python interpreters to try, in order: the configured one, python3 on the PATH, pyenv, Homebrew, system. */
 export function pythonCandidates(configured: string, home: string = os.homedir()): string[] {
   const out: string[] = [];
   if (configured) out.push(configured);
@@ -111,7 +111,7 @@ export function pythonCandidates(configured: string, home: string = os.homedir()
   try {
     const dir = path.join(home, ".pyenv", "versions");
     for (const v of fs.readdirSync(dir).sort().reverse()) out.push(path.join(dir, v, "bin", "python3"));
-  } catch { /* nessun pyenv */ }
+  } catch { /* no pyenv */ }
   out.push("/opt/homebrew/bin/python3", "/usr/local/bin/python3", "/usr/bin/python3");
   return [...new Set(out)];
 }
@@ -122,12 +122,12 @@ function tryPython(python: string, env: NodeJS.ProcessEnv): Promise<string | nul
   return new Promise((resolve) => {
     const child = spawn(python, ["-c", REQUIRED_MODULES], { env });
     let err = "";
-    const timer = setTimeout(() => { child.kill(); resolve("nessuna risposta in 15 s"); }, 15000);
+    const timer = setTimeout(() => { child.kill(); resolve("no answer within 15 s"); }, 15000);
     child.stderr.on("data", (d) => (err += d.toString("utf8")));
     child.on("error", (e) => { clearTimeout(timer); resolve(e.message); });
     child.on("close", (code) => {
       clearTimeout(timer);
-      resolve(code === 0 ? null : (err.trim().split("\n").slice(-1)[0] || `codice ${code}`));
+      resolve(code === 0 ? null : (err.trim().split("\n").slice(-1)[0] || `exit code ${code}`));
     });
   });
 }
@@ -142,13 +142,13 @@ export interface EnvReport {
   ok: boolean;
 }
 
-/** Controlla l'ambiente: cartella del motore, Python con le dipendenze, typst, pandoc (gs e' facoltativo). */
+/** Checks the environment: engine folder, Python with the dependencies, typst, pandoc (gs is optional). */
 export async function probeEnvironment(s: EngineSettings, pluginDir: string | null): Promise<EnvReport> {
   const env = childEnv(s);
   const problems: string[] = [];
   const engineDir = s.engineDir || (pluginDir ? detectEngineDir(pluginDir) : null);
   if (!engineDir || !fs.existsSync(path.join(engineDir, "volumen", "__init__.py"))) {
-    problems.push("Cartella del motore non trovata: indicala nelle impostazioni (quella che contiene la cartella `volumen`).");
+    problems.push("Engine folder not found: set it in the settings (the one containing the `volumen` folder).");
   }
   let python: string | null = null;
   const errors: string[] = [];
@@ -156,17 +156,17 @@ export async function probeEnvironment(s: EngineSettings, pluginDir: string | nu
     const err = await tryPython(cand, env);
     if (err === null) { python = cand; break; }
     errors.push(`${cand}: ${err}`);
-    if (s.python && cand === s.python) break;          // un Python indicato a mano non si sostituisce di nascosto
+    if (s.python && cand === s.python) break;          // a manually configured Python is never silently replaced
   }
-  if (!python) problems.push(`Python con le dipendenze non trovato (pip install -r requirements.txt). ${errors[0] || ""}`.trim());
+  if (!python) problems.push(`Python with the dependencies not found (pip install -r requirements.txt). ${errors[0] || ""}`.trim());
   const typst = findBinary("typst", env);
   const pandoc = findBinary("pandoc", env);
-  if (!typst) problems.push("`typst` non trovato (brew install typst).");
-  if (!pandoc) problems.push("`pandoc` non trovato (brew install pandoc).");
+  if (!typst) problems.push("`typst` not found (brew install typst).");
+  if (!pandoc) problems.push("`pandoc` not found (brew install pandoc).");
   return { python, engineDir, typst, pandoc, gs: findBinary("gs", env), problems, ok: problems.length === 0 };
 }
 
-/** Esegue il motore; stdout e' solo l'oggetto JSON, il resto (progresso, errori) e' su stderr. */
+/** Runs the engine; stdout is only the JSON object, everything else (progress, errors) goes to stderr. */
 export function runEngine<T>(s: EngineSettings, args: string[], onLog?: (line: string) => void): Promise<T> {
   return new Promise((resolve, reject) => {
     const child = spawn(s.python, args, { cwd: s.engineDir, env: childEnv(s) });
@@ -179,16 +179,16 @@ export function runEngine<T>(s: EngineSettings, args: string[], onLog?: (line: s
       if (onLog) text.split("\n").filter(Boolean).forEach(onLog);
     });
     child.on("error", (e) =>
-      reject(new EngineError(`Impossibile avviare ${s.python}: ${e.message}`, err, null)));
+      reject(new EngineError(`Cannot start ${s.python}: ${e.message}`, err, null)));
     child.on("close", (code) => {
       if (code !== 0) {
-        const last = err.trim().split("\n").filter(Boolean).slice(-1)[0] || `codice di uscita ${code}`;
+        const last = err.trim().split("\n").filter(Boolean).slice(-1)[0] || `exit code ${code}`;
         return reject(new EngineError(last, err, code));
       }
       try {
         resolve(JSON.parse(out.trim().split("\n").slice(-1)[0]) as T);
       } catch {
-        reject(new EngineError("Risposta del motore non valida (JSON atteso)", out + "\n" + err, code));
+        reject(new EngineError("Invalid engine response (JSON expected)", out + "\n" + err, code));
       }
     });
   });
@@ -198,7 +198,7 @@ export function listChapters(s: EngineSettings, volume: string): Promise<{ volum
   return runEngine(s, ["-m", "volumen", "--json", "--volume", volume, "--list-chapters"]);
 }
 
-/** Capitolo a cui appartiene un file: il capitolo Markdown con quel file, o la cartella `source=<dir>` che lo contiene. */
+/** The chapter a file belongs to: the Markdown chapter with that file, or the `source=<dir>` folder that contains it. */
 export function chapterForFile(rows: ChapterRow[], absFile: string, volumeDir: string): ChapterRow | undefined {
   const target = path.resolve(absFile);
   const direct = rows.find((r) => r.file && path.resolve(r.file) === target);

@@ -16,26 +16,26 @@ from .volume_note import load_volume_note
 from .sources import folder, markdown, resolve_path
 
 DESCRIPTION = """\
-Volumen by LAD: impagina un volume da note Markdown. Lo script si occupa SOLO del layout: non
-corregge mai i dati, li segnala in anomalie.md / anomalie.csv.
+Volumen by LAD: typesets a volume from Markdown notes. The engine only does the layout: it never
+corrects data, it reports problems in anomalies.md / anomalies.csv.
 
-Formati:
-  typst   PDF via Typst (--keep-typ: salva anche il .typ; --no-pdf: solo .typ)   [default]
+Formats:
+  typst   PDF via Typst (--keep-typ: also keep the .typ; --no-pdf: only the .typ)   [default]
   docx    DOCX (python-docx)
 
-Uso:
-  python3 -m volumen                          # PDF con Typst
+Usage:
+  python3 -m volumen                          # PDF with Typst
   python3 -m volumen --format docx            # DOCX
-  python3 -m volumen --only F1-01 F5-07       # solo alcune voci delle cartelle (prove)
+  python3 -m volumen --only F1-01 F5-07       # only some entries of the folders (tests)
   python3 -m volumen --set styles.normal.size=10.5 --set page.margin_interior=3
 """
 
 
 def load_volume(path):
     if not path.exists():
-        sys.exit(f"Nota del volume non trovata: {path}")
+        sys.exit(f"Volume note not found: {path}")
     if path.suffix.lower() != ".md":
-        sys.exit(f"La composizione del volume e' una nota Markdown (volume.md), non {path.name}: vedi README.")
+        sys.exit(f"The composition of the volume is a Markdown note (volume.md), not {path.name}: see the README.")
     return load_volume_note(path)
 
 
@@ -75,33 +75,33 @@ def main(argv=None, default_format="typst"):
         argv = sys.argv[1:]
     ap = argparse.ArgumentParser(description=DESCRIPTION,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--volume", help="nota del volume .md (default: VOLUMEN_NOTE, poi il file .volume del progetto, poi ./volume.md)")
-    ap.add_argument("--config", help="file JSON/YAML di grafica/layout da sovrapporre allo stile della nota (opzionale)")
-    ap.add_argument("--out", help="cartella di output (default: `output_dir` della nota, poi out/ accanto alla nota)")
-    ap.add_argument("--open", action="store_true", help="a fine lavoro apre il file prodotto (PDF se presente, altrimenti DOCX/.typ)")
-    ap.add_argument("--name", help="nome file di output (senza estensione)")
-    ap.add_argument("--set", action="append", metavar="CHIAVE=VALORE",
-                    help="override inline della grafica, es. styles.h2.size=15 (ripetibile)")
+    ap.add_argument("--volume", help="volume note .md (default: VOLUMEN_NOTE, then the project's .volume file, then ./volume.md)")
+    ap.add_argument("--config", help="JSON/YAML file of graphics/layout to overlay on the note's style (optional)")
+    ap.add_argument("--out", help="output folder (default: the note's `output_dir`, then out/ next to the note)")
+    ap.add_argument("--open", action="store_true", help="open the produced file when finished (PDF if present, otherwise DOCX/.typ)")
+    ap.add_argument("--name", help="output file name (without extension)")
+    ap.add_argument("--set", action="append", metavar="KEY=VALUE",
+                    help="inline override of the style, e.g. styles.h2.size=15 (repeatable)")
     ap.add_argument("--format", choices=["typst", "docx", "pdf", "both"], default=default_format,
                     help="typst (PDF, default) | docx")
-    ap.add_argument("--keep-typ", action="store_true", help="con --format typst: salva anche il .typ (debug)")
-    ap.add_argument("--no-pdf", action="store_true", help="con --format typst: solo il .typ")
+    ap.add_argument("--keep-typ", action="store_true", help="with --format typst: also keep the .typ (debug)")
+    ap.add_argument("--no-pdf", action="store_true", help="with --format typst: only the .typ")
     ap.add_argument("--shrink", nargs="?", const="screen", choices=shrink.PRESETS, metavar="PRESET",
-                    help="oltre al PDF scrive <nome>-shrink.pdf ridotto con Ghostscript (bozze); "
+                    help="besides the PDF, writes <name>-shrink.pdf reduced with Ghostscript (drafts); "
                          "PRESET: screen (default, 72 dpi), ebook (150), printer (300)")
     ap.add_argument("--annotations", action="store_true",
-                    help="costruisce le annotazioni CriticMarkup ({==testo==}{>>commento<<}): commenti Word / "
-                         "annotazioni PDF (solo bozze; senza il flag restano fuori)")
-    ap.add_argument("--only", nargs="+", metavar="ID", help="solo queste voci dei capitoli `source: folder` (prove)")
+                    help="builds the CriticMarkup annotations ({==text==}{>>comment<<}): Word comments / "
+                         "PDF annotations (drafts only; without the flag they are left out)")
+    ap.add_argument("--only", nargs="+", metavar="ID", help="only these entries of the `source: folder` chapters (tests)")
     ap.add_argument("--chapter", nargs="+", metavar="ID",
-                    help="impagina solo questi capitoli (id della nota del volume; un contenitore include i "
-                         "suoi figli), es. --chapter 4 oppure --chapter 6.1 6.2")
-    ap.add_argument("--list-chapters", action="store_true", help="elenca gli id dei capitoli ed esce")
+                    help="typeset only these chapters (ids from the volume note; a container includes its "
+                         "children), e.g. --chapter 4 or --chapter 6.1 6.2")
+    ap.add_argument("--list-chapters", action="store_true", help="list the chapter ids and exit")
     ap.add_argument("--validate", action="store_true",
-                    help="controlla il volume senza impaginare: file e link mancanti, immagini, citazioni; scrive anomalie.md/.csv")
+                    help="check the volume without typesetting: missing files and links, images, citations; writes anomalies.md/.csv")
     ap.add_argument("--json", action="store_true",
-                    help="per i programmi (plugin Obsidian): su stdout solo un oggetto JSON (esito, file scritti, "
-                         "conteggio delle anomalie; con --list-chapters l'elenco dei capitoli), il resto va su stderr")
+                    help="for programs (Obsidian plugin): stdout carries only a JSON object (result, files written, "
+                         "anomaly counts; with --list-chapters the chapter list), everything else goes to stderr")
     args = ap.parse_args(argv)
     json_out = None
     if args.json:                 # stdout riservato al JSON: anche l'output dei programmi figli (typst) va su stderr
@@ -109,8 +109,8 @@ def main(argv=None, default_format="typst"):
         os.dup2(2, 1)
         sys.stdout = sys.stderr
     if args.format in ("pdf", "both"):
-        sys.exit("--format pdf/both (PDF via LibreOffice) non e' piu' supportato: usa il default `typst` per il PDF "
-                 "o `--format docx` per il solo DOCX.")
+        sys.exit("--format pdf/both (PDF via LibreOffice) is no longer supported: use the default `typst` for PDF "
+                 "or `--format docx` for DOCX only.")
 
     cfg, vol_path, vol, base_dir = load_project(args)
     acfg = cfg.get("annotations", {})
@@ -151,8 +151,8 @@ def main(argv=None, default_format="typst"):
             collect_ids(c.get("chapters", []))
     collect_ids(vol.get("chapters", []))
     if wanted - known:
-        sys.exit(f"Capitolo/i non trovati in volume.md: {', '.join(sorted(wanted - known))} "
-                 f"(vedi --list-chapters)")
+        sys.exit(f"Chapter(s) not found in volume.md: {', '.join(sorted(wanted - known))} "
+                 f"(see --list-chapters)")
     if wanted and not args.name:
         out_name = f"{out_name}-" + "_".join(sorted(wanted)).replace(".", "-")
 
@@ -233,7 +233,7 @@ def main(argv=None, default_format="typst"):
         elif kind == "markdown":
             chapters.append(number_chapter(markdown.load_chapter(cfg, ch, base_dir, an), ch))
         else:
-            sys.exit(f"source non supportato: {kind!r} (capitolo {ch.get('id')!r})")
+            sys.exit(f"unsupported source: {kind!r} (chapter {ch.get('id')!r})")
 
     for ch in vol.get("chapters", []):
         load(ch, 1)
@@ -271,12 +271,12 @@ def main(argv=None, default_format="typst"):
 
     if args.validate:
         write_reports(an, excluded, out_dir, {"n_included": n_included})
-        print(f"Controllo: {n_included} voci, {len(excluded)} escluse, {len(an.rows)} anomalie")
+        print(f"Check: {n_included} entries, {len(excluded)} excluded, {len(an.rows)} anomalies")
         for k, n in an.counts().most_common():
             print(f"  {n:4d}  {k}")
         if json_out:
             json.dump({"ok": True, "validate": True, "volume": str(vol_path), "output_dir": str(out_dir),
-                       "anomalies": str(out_dir / "anomalie.md"), "counts": dict(an.counts()),
+                       "anomalies": str(out_dir / "anomalies.md"), "counts": dict(an.counts()),
                        "n_included": n_included, "n_excluded": len(excluded)}, json_out, ensure_ascii=False)
             json_out.write("\n")
             json_out.flush()
@@ -297,21 +297,21 @@ def main(argv=None, default_format="typst"):
     if args.shrink:
         for pdf in [p for p in written if p.suffix == ".pdf"]:
             small = shrink.shrink_pdf(pdf, preset=args.shrink)
-            print(f"Ridotto: {pdf.name} {shrink.mb(pdf):.1f} MB -> {small.name} {shrink.mb(small):.1f} MB")
+            print(f"Reduced: {pdf.name} {shrink.mb(pdf):.1f} MB -> {small.name} {shrink.mb(small):.1f} MB")
             written.append(small)
     write_reports(an, excluded, out_dir, {"n_included": n_included})
-    written += [out_dir / "anomalie.md", out_dir / "anomalie.csv"]
+    written += [out_dir / "anomalies.md", out_dir / "anomalies.csv"]
 
-    print(f"Voci impaginate: {n_included}  ·  escluse: {len(excluded)}")
+    print(f"Entries typeset: {n_included}  ·  excluded: {len(excluded)}")
     for k, n in an.counts().most_common():
         print(f"  {n:4d}  {k}")
-    print("Scritti:", ", ".join(str(p) for p in written))
+    print("Written:", ", ".join(str(p) for p in written))
     if json_out:
         json.dump({"ok": True, "volume": str(vol_path), "output_dir": str(out_dir), "written": [str(p) for p in written],
                    "pdf": next((str(p) for p in written if p.suffix == ".pdf" and not p.stem.endswith("-shrink")), None),
                    "docx": next((str(p) for p in written if p.suffix == ".docx"), None),
                    "typ": next((str(p) for p in written if p.suffix == ".typ"), None),
-                   "anomalies": str(out_dir / "anomalie.md"), "counts": dict(an.counts()),
+                   "anomalies": str(out_dir / "anomalies.md"), "counts": dict(an.counts()),
                    "n_included": n_included, "n_excluded": len(excluded)}, json_out, ensure_ascii=False)
         json_out.write("\n")
         json_out.flush()

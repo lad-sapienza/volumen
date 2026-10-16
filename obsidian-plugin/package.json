@@ -2,7 +2,7 @@
   "name": "volumen-obsidian",
   "version": "0.1.0",
   "private": true,
-  "description": "Plugin Obsidian per il motore di impaginazione Volumen (python -m volumen)",
+  "description": "Obsidian plugin for the Volumen typesetting engine (python -m volumen)",
   "scripts": {
     "dev": "node esbuild.config.mjs",
     "build": "tsc --noEmit && node esbuild.config.mjs production",

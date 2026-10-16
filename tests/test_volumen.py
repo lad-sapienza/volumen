@@ -107,15 +107,15 @@ class VolumeNote(unittest.TestCase):
         (self.p.root / "md" / "gamma.md").write_text("Senza titolo nel frontmatter.\n")
         _, warnings = self.load()
         kinds = {w[1] for w in warnings}
-        self.assertIn("file non trovato", kinds)
-        self.assertIn("il file non ha `title` nel frontmatter", kinds)
+        self.assertIn("file not found", kinds)
+        self.assertIn("the file has no `title` in its frontmatter", kinds)
 
     def test_invalid_yaml_stops_with_line_number(self):
         self.p.note.write_text(self.p.note.read_text().replace("page: {size: A4,", "page: [size: A4,"))
         with self.assertRaises(SystemExit) as cm:
             self.load()
-        self.assertIn("YAML non valido", str(cm.exception))
-        self.assertIn("riga", str(cm.exception))
+        self.assertIn("invalid YAML", str(cm.exception))
+        self.assertIn("line", str(cm.exception))
 
     def test_markdown_and_wiki_links_are_equivalent(self):
         self.p.note.write_text(self.p.note.read_text().replace("- [alfa](alfa.md)", "- [[alfa]]"))
@@ -146,7 +146,7 @@ class Engine(unittest.TestCase):
     def json(self, *args):
         proc = self.p.run("--json", *args)
         lines = proc.stdout.strip().splitlines()
-        self.assertEqual(len(lines), 1, f"stdout deve contenere solo il JSON, non: {proc.stdout!r}")
+        self.assertEqual(len(lines), 1, f"stdout must contain only the JSON, not: {proc.stdout!r}")
         return json.loads(lines[0])
 
     def test_list_chapters_json(self):
@@ -178,7 +178,7 @@ class Engine(unittest.TestCase):
         proc = subprocess.run([sys.executable, "-m", "volumen", "--volume", str(self.p.tmp / "no.md")], cwd=ROOT,
                               capture_output=True, text=True)
         self.assertNotEqual(proc.returncode, 0)
-        self.assertIn("Nota del volume non trovata", proc.stderr)
+        self.assertIn("Volume note not found", proc.stderr)
 
     @unittest.skipUnless(HAVE_PANDOC, "serve pandoc")
     def test_typst_source_matches_golden(self):

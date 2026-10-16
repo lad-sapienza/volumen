@@ -54,10 +54,10 @@ def _clean(md):
 def process(volume, bib_path, csl_path, an, lang="en-US", title="References"):
     """Sostituisce le citazioni nei testi e aggiunge a ogni capitolo la sua bibliografia."""
     if not shutil.which("pandoc"):
-        sys.exit("pandoc non trovato: serve per le citazioni bibliografiche (brew install pandoc).")
+        sys.exit("pandoc not found: it is needed for bibliographic citations (brew install pandoc).")
     bib_path = Path(bib_path)
     if not bib_path.exists():
-        sys.exit(f"File bibliografico non trovato: {bib_path}")
+        sys.exit(f"Bibliography file not found: {bib_path}")
 
     # 1. citazioni per capitolo
     per_chapter = []                 # [(chapter, set(cluster))]
@@ -89,7 +89,7 @@ def process(volume, bib_path, csl_path, an, lang="en-US", title="References"):
             cmd += ["--csl", str(csl_path)]
         r = subprocess.run(cmd, capture_output=True, text=True)
     if r.returncode != 0:
-        sys.exit(f"pandoc --citeproc e' fallito:\n{r.stderr[:1500]}")
+        sys.exit(f"pandoc --citeproc failed:\n{r.stderr[:1500]}")
 
     # 3. chiavi mancanti (segnalate) e output
     missing = set(re.findall(r"citation (\S+) not found", r.stderr))
@@ -97,7 +97,7 @@ def process(volume, bib_path, csl_path, an, lang="en-US", title="References"):
     body, refs = (r.stdout[:m_refs.start()], r.stdout[m_refs.start():]) if m_refs else (r.stdout, "")
     formatted = [p.strip() for p in re.split(r"\n\s*\n", body.strip()) if p.strip()]
     if len(formatted) != len(ordered):
-        sys.exit(f"Citazioni: attese {len(ordered)} risposte da pandoc, ricevute {len(formatted)}.")
+        sys.exit(f"Citations: expected {len(ordered)} answers from pandoc, received {len(formatted)}.")
     table = {c: _clean(f) for c, f in zip(ordered, formatted)}
     entries = {}
     order = []
@@ -115,11 +115,11 @@ def process(volume, bib_path, csl_path, an, lang="en-US", title="References"):
             keys.update(KEYS_IN.findall(c))
         for c in sorted(found):
             if c.startswith("[") and SEPARATOR_TYPO.search(c):
-                # non si corregge: il testo resta com'e' e pandoc lo interpreta a suo modo
-                an.add(ch.id, "citazione: ',' prima di @chiave (fra le opere serve ';'; pandoc "
-                       "ignora le altre citazioni)", "bibliografia", c[:70] + "…")
+                # not corrected: the text stays as it is and pandoc interprets it its own way
+                an.add(ch.id, "citation: ',' before @key (works must be separated by ';'; pandoc "
+                       "ignores the other citations)", "bibliography", c[:70] + "…")
         for k in sorted(keys & missing):
-            an.add(ch.id, "citazione: chiave non presente nel .bib", "bibliografia", k)
+            an.add(ch.id, "citation: key not in the .bib", "bibliography", k)
         if getattr(ch, "bibliography", True):
             mine = [(k, entries[k]) for k in order if k in keys]
             if mine:

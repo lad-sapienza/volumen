@@ -98,8 +98,8 @@ class _Resolver:
                 self._index.setdefault(f.stem, []).append(f)
         found = self._index.get(Path(name).stem, [])
         if not found:
-            return None, "file non trovato"
-        return found[0].resolve(), (f"nome ambiguo ({len(found)} file): usato {found[0]}" if len(found) > 1 else None)
+            return None, "file not found"
+        return found[0].resolve(), (f"ambiguous name ({len(found)} files): used {found[0]}" if len(found) > 1 else None)
 
 
 def _frontmatter(meta):
@@ -152,7 +152,7 @@ def load_volume_note(path):
             name = re.sub(r"\.md$", "", str(raw).strip())      # nome semplice (es. title-page.md)
         f, warn = res.find(name)
         if f is None:
-            warnings.append((where, "file non trovato", "volume.md", str(raw)))
+            warnings.append((where, "file not found", "volume.md", str(raw)))
             return None
         if warn:
             warnings.append((where, warn, "volume.md", str(raw)))
@@ -180,10 +180,10 @@ def load_volume_note(path):
                     data = yaml.safe_load("\n".join(block)) or {}
                 except yaml.YAMLError as e:
                     mark = getattr(e, "problem_mark", None)
-                    where = f"riga {start + 1 + mark.line} del corpo" if mark else f"blocco alla riga {start}"
-                    sys.exit(f"{path.name}: YAML non valido ({where}): {getattr(e, 'problem', e)}")
+                    where = f"body line {start + 1 + mark.line}" if mark else f"block at line {start}"
+                    sys.exit(f"{path.name}: invalid YAML ({where}): {getattr(e, 'problem', e)}")
                 if not isinstance(data, dict):
-                    sys.exit(f"{path.name}: il blocco yaml alla riga {start} del corpo deve essere una mappa chiave: valore")
+                    sys.exit(f"{path.name}: the yaml block at body line {start} must be a key: value map")
                 deep_merge(config, data)
             fence = None
         else:
@@ -214,24 +214,24 @@ def load_volume_note(path):
             ch = {"id": cid}
             if name:                                 # voce con link: capitolo Markdown (titolo = title del file)
                 if children:
-                    warnings.append((cid, "una voce con file non puo' avere figli", "volume.md", label))
+                    warnings.append((cid, "an entry with a file cannot have children", "volume.md", label))
                 f, warn = res.find(name)
                 if f is None:
-                    warnings.append((cid, "file non trovato", "volume.md", label))
+                    warnings.append((cid, "file not found", "volume.md", label))
                     continue
                 if warn:
                     warnings.append((cid, warn, "volume.md", label))
                 if "|" in label:
-                    warnings.append((cid, "alias del link ignorato (il titolo e' quello del file)", "volume.md", label))
+                    warnings.append((cid, "link alias ignored (the title comes from the file)", "volume.md", label))
                 ch.update(source="markdown", file=str(f))
             elif "source" in attrs:                  # source=<cartella>: cartella di file Markdown
                 if children:
-                    warnings.append((cid, "una cartella (source=) non puo' avere figli", "volume.md", label))
+                    warnings.append((cid, "a folder (source=) cannot have children", "volume.md", label))
                 ch.update(title=label, dir=attrs.pop("source"), source="folder")
             elif children:                           # contenitore
                 ch.update(title=label, chapters=children)
             else:
-                warnings.append((cid, "voce senza file ne' source", "volume.md", label))
+                warnings.append((cid, "entry with neither file nor source", "volume.md", label))
                 continue
             ch.update(attrs)
             out.append(ch)
@@ -239,15 +239,15 @@ def load_volume_note(path):
 
     vol["chapters"], _ = build(0, items[0][0] if items else 0, "")
     if not vol["chapters"]:
-        warnings.append(("", "nessun capitolo nella nota", "volume.md", "serve un elenco `- [file](file.md)`"))
+        warnings.append(("", "no chapters in the note", "volume.md", "a list `- [file](file.md)` is needed"))
 
     def check_titles(chs):
         for c in chs:
             if c.get("source") == "markdown":
                 m, _ = markdown.split_frontmatter(Path(c["file"]).read_text(encoding="utf-8"))
                 if not (m or {}).get("title"):
-                    warnings.append((c["id"], "il file non ha `title` nel frontmatter", Path(c["file"]).name,
-                                     "il titolo del capitolo viene solo dal file"))
+                    warnings.append((c["id"], "the file has no `title` in its frontmatter", Path(c["file"]).name,
+                                     "the chapter title comes only from the file"))
             check_titles(c.get("chapters", []))
     check_titles(vol["chapters"])
     return vol, warnings

@@ -890,9 +890,9 @@ def build_source(cfg, volume):
                 out.append(f"#v({table_after}pt)" if not (in_flow and len(b.rows) <= 20) else "")
             elif isinstance(b, model.FigureGroup):
                 if b.title is not None:
-                    sys.exit("Una sezione di figure con titolo (end_images_placement = "
-                             "'figures_section') non e' supportata dal renderer Typst: "
-                             "usa 'after_item'.")
+                    sys.exit("A figures section with a title (end_images_placement = "
+                             "'figures_section') is not supported by the Typst renderer: "
+                             "use 'after_item'.")
                 for f in b.figures:
                     out.append(float_fig(f, in_flow, col_w_cm))
             else:
@@ -923,7 +923,7 @@ def write_and_compile(source, out_dir, out_name, compile_pdf=True, keep_typ=Fals
         if r.returncode != 0:
             kept = out_dir / typ_path.name
             kept.write_text(source, encoding="utf-8")
-            sys.exit(f"Compilazione Typst fallita (vedi errori sopra). Sorgente: {kept}")
+            sys.exit(f"Typst compilation failed (see errors above). Source: {kept}")
     if model.ANNOT["enabled"] and model.ANNOT["items"]:
         from .. import annotate
         annotate.annotate_pdf(pdf_path, model.ANNOT)

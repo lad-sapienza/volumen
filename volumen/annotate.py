@@ -46,7 +46,7 @@ def annotate_pdf(path, annot):
     for it in annot["items"]:
         i = next((k for k, w in enumerate(words) if it["tag"] in w[2]), None)
         if i is None:
-            print(f"Annotazione non ancorata (marcatore assente): {it['comment'][:50]}")
+            print(f"Annotation not anchored (marker missing): {it['comment'][:50]}")
             continue
         target = plain(it["text"]).split() if it["text"] else []
         pno, rect, txt = words[i]

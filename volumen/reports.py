@@ -1,4 +1,4 @@
-"""Anomalie e report (anomalie.md / anomalie.csv)."""
+"""Anomalies and reports (anomalies.md / anomalies.csv)."""
 import csv
 import re
 from collections import Counter
@@ -23,26 +23,26 @@ class Anomalies:
         return Counter(r[1] for r in self.rows)
 
 
-SOURCES_NOTE = "Lo script non corregge testi e dati: le correzioni vanno fatte nelle fonti (file Markdown, immagini, bibliografia)."
+SOURCES_NOTE = "The engine never corrects texts or data: fix them in the sources (Markdown files, images, bibliography)."
 
 
-def write_reports(an, excluded, out_dir, stats, name="anomalie", title="Anomalie rilevate", note=SOURCES_NOTE):
+def write_reports(an, excluded, out_dir, stats, name="anomalies", title="Anomalies found", note=SOURCES_NOTE):
     out_dir.mkdir(parents=True, exist_ok=True)
     rows = sorted(an.rows, key=lambda r: (natural_key(r[0]), r[1], r[2]))
     with open(out_dir / f"{name}.csv", "w", newline="", encoding="utf-8") as f:
         w = csv.writer(f, quoting=csv.QUOTE_ALL)
-        w.writerow(["id", "tipo", "campo", "dettaglio"])
+        w.writerow(["id", "type", "field", "detail"])
         w.writerows(rows)
 
     counts = an.counts()
     lines = [f"# {title}", "",
-             f"Voci nel documento: {stats['n_included']}  ·  "
-             f"escluse: {len(excluded)}  ·  anomalie: {len(rows)}", "",
+             f"Entries in the document: {stats['n_included']}  ·  "
+             f"excluded: {len(excluded)}  ·  anomalies: {len(rows)}", "",
              note, "",
-             "## Riepilogo per tipo", "", "| Tipo | N |", "|---|---:|"]
+             "## Summary by type", "", "| Type | N |", "|---|---:|"]
     for k, n in counts.most_common():
         lines.append(f"| {k} | {n} |")
-    lines += ["", "## Dettaglio per voce", ""]
+    lines += ["", "## Detail by entry", ""]
     cur = None
     for cid, kind, field, detail in rows:
         if cid != cur:
@@ -50,7 +50,7 @@ def write_reports(an, excluded, out_dir, stats, name="anomalie", title="Anomalie
             cur = cid
         lines.append(f"- **{kind}** ({field}): {detail}")
     if excluded:
-        lines += ["", "## Record esclusi", ""]
+        lines += ["", "## Excluded records", ""]
         for cid, reason in sorted(excluded, key=lambda t: natural_key(t[0])):
             lines.append(f"- {cid}: {reason}")
     (out_dir / f"{name}.md").write_text("\n".join(lines) + "\n", encoding="utf-8")

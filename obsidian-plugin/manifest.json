@@ -3,7 +3,7 @@
   "name": "Volumen by LAD",
   "version": "0.1.0",
   "minAppVersion": "1.5.0",
-  "description": "Impagina un volume (PDF con Typst, DOCX) dai capitoli Markdown del vault, secondo la nota volume.md.",
+  "description": "Typesets a volume (PDF with Typst, DOCX) from the Markdown chapters of the vault, as described in the volume.md note.",
   "author": "Julian Bogdani",
   "isDesktopOnly": true
 }

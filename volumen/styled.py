@@ -38,7 +38,7 @@ def resolve(cfg, classes, attrs, warn=None):
     named = next((c for c in classes if c in cfg.get("styles", {})), None)
     for c in classes:
         if c != named and c not in cfg.get("styles", {}):
-            warn(f"stile `.{c}` non definito nello stile di volume.md (styles)")
+            warn(f"style `.{c}` not defined in the style of volume.md (styles)")
     if named:
         sc = style_cfg(cfg, named, fallback="normal")
     else:
@@ -66,7 +66,7 @@ def resolve(cfg, classes, attrs, warn=None):
             if v in ALIGNS:
                 sc["align"] = v
             else:
-                warn(f"align non valido: {v} (left|center|right|justify)")
+                warn(f"invalid align: {v} (left|center|right|justify)")
         elif key in ("margin-top", "space-before"):
             n = length_pt(v, sc["size"])
             sc["space_before"] = n if n is not None else sc["space_before"]
@@ -87,14 +87,14 @@ def resolve(cfg, classes, attrs, warn=None):
             if re.fullmatch(r"\s*[0-9]*\.?[0-9]+\s*(cm|mm|in|pt|px|%)?\s*", v):
                 sc["width"] = v.strip()      # senza unita' = cm (come per le immagini); % della larghezza utile
             else:
-                warn(f"width non valido: {v} (es. 8cm, 60%)")
+                warn(f"invalid width: {v} (e.g. 8cm, 60%)")
         elif key == "case":
             if v in CASES:
                 sc["case"] = v
             else:
-                warn(f"case non valido: {v} (upper|lower|smallcaps)")
+                warn(f"invalid case: {v} (upper|lower|smallcaps)")
         else:
-            warn(f"attributo sconosciuto: {k}")
+            warn(f"unknown attribute: {k}")
     if size_set and "line-height" not in {k.replace("_", "-").lower() for k in attrs}:
         sc["line_height"] = round(sc["size"] * 1.2, 1)       # interlinea proporzionale alla nuova corpo
     return sc

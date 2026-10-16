@@ -1,55 +1,63 @@
-# Volumen by LAD: plugin Obsidian
+# Volumen by LAD: Obsidian plugin
 
-Impagina il volume dal vault: i comandi lanciano il motore Python (`python3 -m volumen --json`) sulla nota `volume.md`
-(`type: volume` nel frontmatter). Solo desktop. Il plugin non contiene logica di impaginazione: legge l'esito JSON del motore.
+Typesets the volume from your vault: the commands run the Python engine (`python3 -m volumen --json`) on the `volume.md`
+note (`type: volume` in the frontmatter). Desktop only. The plugin contains no typesetting logic: it just reads the JSON
+result of the engine.
 
-## Comandi
+## Commands
 
-| Comando | Cosa fa |
+| Command | What it does |
 |---|---|
-| Impagina il volume (PDF) | PDF con Typst; lo apre a fine lavoro (impostazione) |
-| Impagina il volume (PDF con annotazioni) | come sopra, con le annotazioni CriticMarkup come commenti PDF |
-| Impagina il volume (DOCX) | DOCX |
-| Impagina il capitolo della nota corrente (PDF) | solo il capitolo della nota aperta (o la cartella `source=…` che la contiene) |
-| Impagina il capitolo della nota corrente (PDF con annotazioni) | come sopra, con le annotazioni CriticMarkup come commenti PDF |
-| Controlla il volume (senza impaginare) | verifica file e link mancanti, immagini, citazioni e apre `anomalie.md`, senza produrre PDF (rapido, prima di una consegna) |
-| Mostra il sorgente Typst del volume | genera il `.typ` e lo apre (per vedere cosa riceve Typst) |
-| Verifica l'ambiente (Python, Typst, Pandoc) | mostra cosa ha trovato il plugin e cosa manca, con il comando per installarlo |
-| Apri le anomalie dell'ultima impaginazione | apre `anomalie.md` (se la cartella di output è nel vault; clic anche sulla barra di stato) |
-| Apri la nota del volume | |
+| Typeset volume (PDF) | PDF with Typst; opens it when finished (setting) |
+| Typeset volume (PDF with annotations) | as above, with the CriticMarkup annotations as PDF comments |
+| Typeset volume (DOCX) | DOCX |
+| Typeset current chapter (PDF) | only the chapter of the open note (or the `source=…` folder that contains it) |
+| Typeset current chapter (PDF with annotations) | as above, with the CriticMarkup annotations as PDF comments |
+| Check volume (without typesetting) | checks missing files and links, images, citations and opens `anomalies.md`, without producing a PDF (quick, before a delivery) |
+| Show Typst source of the volume | generates the `.typ` file and opens it (to see what Typst receives) |
+| Check environment (Python, Typst, Pandoc) | shows what the plugin found and what is missing, with the command to install it |
+| Open anomalies of the last run | opens `anomalies.md` (if the output folder is inside the vault; clicking the status bar does the same) |
+| Open volume note | |
 
-Un'icona nella barra laterale lancia «Impagina il volume (PDF)». La barra di stato mostra l'avanzamento e il numero di anomalie.
+A ribbon icon runs "Typeset volume (PDF)". The status bar shows progress and the number of anomalies.
 
-## Installazione (sviluppo)
+## Installation
+
+**From a release (no Node needed).** Download `main.js` and `manifest.json` from the latest
+[release](../../../releases) into `<vault>/.obsidian/plugins/volumen/`, then in Obsidian: Settings → Community plugins →
+enable "Volumen by LAD". The plugin needs the engine: clone this repository, install its Python dependencies (see the main
+README) and, if the plugin cannot find it by itself, set **Engine folder** in the plugin settings.
+
+**For development.** Link this folder into the vault and build it:
 
 ```bash
 cd obsidian-plugin
 npm install
-npm run build            # genera main.js
-mkdir -p "<vault>/.obsidian/plugins/volumen"
-cp main.js manifest.json "<vault>/.obsidian/plugins/volumen/"      # oppure un link simbolico
+npm run build            # produces main.js
+mkdir -p "<vault>/.obsidian/plugins"
+ln -s "$PWD" "<vault>/.obsidian/plugins/volumen"      # or copy main.js and manifest.json
 ```
 
-Poi in Obsidian: Impostazioni → Plugin della community → attiva «Volumen by LAD».
+With the symlink the plugin finds the engine on its own: it is the parent folder of this one.
 
-## Impostazioni
+## Settings
 
-Di norma **non serve impostare nulla**: il plugin trova da solo
-- la **cartella del motore** (il repo che contiene questo plugin, anche tramite link simbolico);
-- **Python**: prova `python3` nel PATH, gli shim e le versioni di pyenv, Homebrew e il sistema, e sceglie il primo che ha le
-  dipendenze di `requirements.txt` (`python-docx`, `pyyaml`, `pymupdf`, `pillow`);
-- **typst, pandoc, gs**: li cerca nel PATH più Homebrew (`/opt/homebrew/bin`, `/usr/local/bin`), MacPorts e MacTeX
-  (Obsidian non eredita il PATH del terminale).
+Normally **nothing needs to be set**: the plugin finds on its own
+- the **engine folder** (the repository that contains this plugin, also through a symlink);
+- **Python**: it tries `python3` on the PATH, the pyenv shims and versions, Homebrew and the system, and picks the first one
+  that has the dependencies of `requirements.txt` (`python-docx`, `pyyaml`, `pymupdf`, `pillow`);
+- **typst, pandoc, gs**: it looks for them on the PATH plus Homebrew (`/opt/homebrew/bin`, `/usr/local/bin`), MacPorts and
+  MacTeX (Obsidian does not inherit the terminal's PATH).
 
-Il comando «Verifica l'ambiente» mostra cosa ha trovato. Le impostazioni servono solo se il rilevamento non basta:
+The "Check environment" command shows what it found. The settings are only needed if detection is not enough:
 
-- **Nota del volume**: percorso nel vault (es. `md/volume.md`). Vuoto = la nota attiva se ha `type: volume`, altrimenti l'unica del vault.
-- **Apri il file a fine lavoro**.
-- Avanzate: **Cartella del motore**, **Python** (un percorso indicato a mano non viene mai sostituito di nascosto), **PATH aggiuntivo**.
+- **Volume note**: path in the vault (e.g. `md/volume.md`). Empty = the active note if it has `type: volume`, otherwise the only one in the vault.
+- **Open the file when finished**.
+- Advanced: **Engine folder**, **Python** (a manually given path is never silently replaced), **Extra PATH**.
 
-## Prove
+## Tests
 
 ```bash
-npm test                                           # test unitari (ambiente, argomenti, link simbolici)
-VOLUMEN_PYTHON=/percorso/python3 VOLUMEN_TEST_VOLUME=/percorso/volume.md npm test   # + prova con il motore reale
+npm test                                           # unit tests (environment, arguments, symlinks)
+VOLUMEN_PYTHON=/path/to/python3 VOLUMEN_TEST_VOLUME=/path/to/volume.md npm test   # + test with the real engine
 ```

@@ -44,7 +44,7 @@ def load_config(args, overrides=None):
         deep_merge(cfg, yaml.safe_load(extra.read_text(encoding="utf-8")) or {})    # il JSON e' YAML valido
     for item in args.set or []:
         if "=" not in item:
-            sys.exit(f"--set richiede chiave=valore, ricevuto: {item}")
+            sys.exit(f"--set requires key=value, got: {item}")
         k, v = item.split("=", 1)
         set_path(cfg, k.strip(), v.strip())
     return cfg

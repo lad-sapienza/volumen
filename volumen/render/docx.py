@@ -681,16 +681,16 @@ def _embed_picture(paragraph, path, width, an):
         raw = Path(path).read_bytes()
         fixed = fix_broken_exif_ascii_tags(raw)
         if fixed == raw:
-            raise ValueError("nessun tag Exif da correggere")
+            raise ValueError("no Exif tag to fix")
         paragraph.add_run().add_picture(io.BytesIO(fixed), width=width)
         if an is not None:
-            an.add(Path(path).parent.name, "nota: Exif corretto per incorporare l'immagine",
+            an.add(Path(path).parent.name, "note: Exif fixed to embed the image",
                    "images", Path(path).name)
         return True
     except Exception as e:
         if an is not None:
-            reason = "file vuoto (0 byte)" if Path(path).stat().st_size == 0 else e.__class__.__name__
-            an.add(Path(path).parent.name, "immagine non incorporabile", "images",
+            reason = "empty file (0 bytes)" if Path(path).stat().st_size == 0 else e.__class__.__name__
+            an.add(Path(path).parent.name, "image cannot be embedded", "images",
                    f"{Path(path).name}: {reason}")
         return False
 
@@ -725,7 +725,7 @@ def add_image(container, path, cfg, caption=None, max_width=None, max_height=Non
     p.paragraph_format.space_after = Pt(0 if caption else (6 if space_after_pt is None else space_after_pt))
     p.paragraph_format.keep_with_next = bool(caption)
     if not _embed_picture(p, path, width, an):
-        run = p.add_run(f"[immagine non incorporabile: {Path(path).name}]")
+        run = p.add_run(f"[image cannot be embedded: {Path(path).name}]")
         run.italic = True
     if caption:
         cp = container.add_paragraph(style="Caption")

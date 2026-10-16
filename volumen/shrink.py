@@ -13,13 +13,13 @@ def shrink_pdf(src, dst=None, preset="screen"):
     src = Path(src)
     dst = Path(dst) if dst else src.with_name(f"{src.stem}-shrink.pdf")
     if not shutil.which("gs"):
-        sys.exit("--shrink richiede Ghostscript (gs): brew install ghostscript")
+        sys.exit("--shrink needs Ghostscript (gs): brew install ghostscript")
     r = subprocess.run(
         ["gs", "-dBATCH", "-dNOPAUSE", "-q", "-sDEVICE=pdfwrite", f"-dPDFSETTINGS=/{preset}",
          "-dColorImageDownsampleType=/Bicubic", "-dGrayImageDownsampleType=/Bicubic",
          "-dMonoImageDownsampleType=/Subsample", f"-sOutputFile={dst}", str(src)])
     if r.returncode != 0:
-        sys.exit("Ghostscript ha fallito (vedi errori sopra).")
+        sys.exit("Ghostscript failed (see errors above).")
     from . import annotate
     annotate.restore_popups(dst)          # gs scarta i Popup delle annotazioni (--annotations)
     return dst
