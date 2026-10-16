@@ -48,6 +48,37 @@ the chapter of the open note (PDF, PDF with annotations, DOCX) and to open the a
 [obsidian-plugin/README.md](obsidian-plugin/README.md). The engine exposes `--json` (result on stdout, everything else on
 stderr) and `--list-chapters --json` for exactly this purpose.
 
+## Quick start (macOS)
+
+Four steps, about ten minutes. You only need a Terminal and [Homebrew](https://brew.sh).
+
+1. **Install the tools** (once):
+
+       brew install python typst pandoc
+
+2. **Get Volumen and its Python libraries**:
+
+       git clone https://github.com/lad-sapienza/volumen
+       cd volumen
+       pip3 install -r requirements.txt
+
+3. **Try it on the example volume** (Butler's *Odyssey*); the PDF (`odyssey.pdf`) appears in `example/md/out/`:
+
+       python3 -m volumen --volume example/md/volume.md
+
+   The first run needs an internet connection (Typst downloads a package once).
+
+4. **Optional, use it from Obsidian** (no Node needed):
+   1. Download `main.js` and `manifest.json` from the latest [release](../../releases).
+   2. Put them in `<your vault>/.obsidian/plugins/volumen/` (create the folder).
+   3. In Obsidian: Settings → Community plugins → turn off Restricted mode → enable **Volumen by LAD**.
+   4. In the plugin settings set **Engine folder** to the `volumen` folder cloned in step 2.
+   5. Open your `volume.md` and run **Typeset volume (PDF)** from the command palette (Cmd+P).
+      If something does not work, run **Check environment (Python, Typst, Pandoc)**: it says what is missing.
+
+On Linux use your package manager instead of Homebrew; on Windows we recommend WSL. Details and options are in
+[Installation](#installation) below.
+
 ## Installation
 
 Requirements (tested with Python 3.12, Typst 0.15, pandoc 3.12): Python 3, [Typst](https://typst.app) (PDF),
