@@ -5,7 +5,7 @@ subtitle: Translated by Samuel Butler (1900)
 authors: ["Homer"]
 lang: en-GB
 toc: true
-toc_depth: 1
+toc_depth: 2
 output_name: odyssey
 frontmatter: ["[title-page](title-page.md)"]
 ---
