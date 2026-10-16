@@ -1,9 +1,9 @@
-"""Sorgente 'folder' (`source=<cartella>` nella nota del volume): una cartella di file Markdown, un file per voce -> Chapter.
+"""'folder' source (`source=<folder>` in the volume note): a folder of Markdown files, one file per entry -> Chapter.
 
-I file si riuniscono in un unico testo (titoli spostati di un livello) che passa dal lettore
-Markdown dei capitoli: stesse tabelle, figure, note e link. Qui si sceglie solo quali file entrano
-e in che ordine (prefissi, eccezioni) e si adattano i blocchi (a-capo di pagina, colonne, ancore per
-i link [ID](ID.md))."""
+The files are joined into a single text (headings shifted by one level) that goes through the chapter
+Markdown reader: same tables, figures, notes and links. Here we only choose which files go in
+and in what order (prefixes, exceptions) and adapt the blocks (page breaks, columns, anchors for
+the [ID](ID.md) links)."""
 import re
 import sys
 from pathlib import Path
@@ -18,8 +18,8 @@ IMAGE_TARGET = re.compile(r"^(!\[.*?\]\()([^)]+)(\).*)$")
 
 
 def prefix_of(cid, tokens=()):
-    """-> il piu' lungo dei prefissi `tokens` (series_order / exclude_prefixes) che precede l'ID, None se nessuno.
-    Dopo una lettera non deve seguirne un'altra: "S" vale per S1-01, non per SA-01."""
+    """-> the longest of the `tokens` prefixes (series_order / exclude_prefixes) that precedes the ID, None if none.
+    After a letter another one must not follow: "S" matches S1-01, not SA-01."""
     best = None
     for tok in tokens:
         tok = str(tok)
@@ -36,8 +36,8 @@ def cards_dir(ch, base_dir):
 
 
 def read_cards(folder, id_field=None):
-    """-> {id: (percorso, meta, corpo)} per tutti i .md della cartella. ID = campo `id_field` del front matter
-    (se dato e presente), altrimenti il nome del file senza .md."""
+    """-> {id: (path, meta, body)} for all the .md files of the folder. ID = `id_field` of the front matter
+    (if given and present), otherwise the file name without .md."""
     out = {}
     for f in sorted(folder.glob("*.md")):
         meta, body = markdown.split_frontmatter(f.read_text(encoding="utf-8"))
@@ -47,8 +47,8 @@ def read_cards(folder, id_field=None):
 
 
 def card_ids(ch, base_dir):
-    """Voci incluse nel volume (nome file senza .md): servono ai link [testo](ID.md) dagli altri capitoli.
-    Una voce esclusa non ha destinazione: il link e' segnalato come non risolto."""
+    """Entries included in the volume (file name without .md): needed by the [text](ID.md) links from other chapters.
+    An excluded entry has no destination: the link is reported as unresolved."""
     d = cards_dir(ch, base_dir)
     if not d.is_dir():
         return {}
@@ -57,12 +57,12 @@ def card_ids(ch, base_dir):
 
 
 def select_cards(cards, ch):
-    """Filtra e ordina secondo volume.md: series_order (prefissi inclusi, nell'ordine), exclude_prefixes,
-    poi le eccezioni `include` / `exclude` / `first` (liste di ID). -> (incluse, [(id, motivo)])."""
+    """Filters and sorts according to volume.md: series_order (prefixes included, in order), exclude_prefixes,
+    then the exceptions `include` / `exclude` / `first` (lists of IDs). -> (included, [(id, reason)])."""
     order = ch.get("series_order", [])
     excl = set(ch.get("exclude_prefixes", []))
     tokens = list(order) + list(excl)
-    by_series = "series_order" in ch        # senza series_order: nessun filtro per serie, ordine naturale
+    by_series = "series_order" in ch        # without series_order: no filter by series, natural order
     inc, exc_ids, first = set(ch.get("include", [])), set(ch.get("exclude", [])), list(ch.get("first", []))
     included, excluded = [], []
     for cid in cards:
@@ -90,8 +90,8 @@ def select_cards(cards, ch):
 
 
 def _body_for_bundle(card_path, body):
-    """Titoli spostati di un livello (# ID -> ## ID: il capitolo ha il suo titolo) e immagini con
-    percorso assoluto (relativi alla scheda, non al capitolo)."""
+    """Headings shifted by one level (# ID -> ## ID: the chapter has its own title) and images with
+    absolute path (relative to the entry, not to the chapter)."""
     lines, in_code = [], False
     for ln in body.splitlines():
         if ln.startswith("```"):
@@ -110,7 +110,7 @@ def _body_for_bundle(card_path, body):
 
 
 def load_chapter(cfg, ch, base_dir, an, only=None):
-    """Capitolo 'folder' -> (Chapter, n_voci, esclusi)."""
+    """'folder' chapter -> (Chapter, n_entries, excluded)."""
     cid = str(ch.get("id", ""))
     folder = cards_dir(ch, base_dir)
     if not folder.is_dir():
@@ -143,5 +143,5 @@ def load_chapter(cfg, ch, base_dir, an, only=None):
             b.columns = columns
         blocks.append(b)
     chapter.blocks = blocks
-    chapter.column_flow = 1                      # le colonne valgono per il solo testo delle voci
+    chapter.column_flow = 1                      # the columns apply only to the text of the entries
     return chapter, len(chosen), excluded

@@ -1,1 +1,1 @@
-"""Volumen by LAD: impaginazione di un volume da note Markdown (PDF con Typst, DOCX)."""
+"""Volumen by LAD: typesetting of a volume from Markdown notes (PDF with Typst, DOCX)."""

@@ -1,16 +1,16 @@
-"""Configurazione: stile e composizione dalla nota del volume (volume.md); i valori mancanti usano i default del codice."""
+"""Configuration: style and composition from the volume note (volume.md); missing values use the defaults of the code."""
 import json
 import sys
 from pathlib import Path
 
 import yaml
 
-HERE = Path(__file__).resolve().parent.parent   # radice del progetto
+HERE = Path(__file__).resolve().parent.parent   # root of the project
 
 
 DEFAULT_STYLE = {
     "font": "Libertinus Serif", "size": 11, "bold": False, "italic": False, "color": "000000",
-    "line_height": None, "first_line_indent": 0, "indent_left": 0, "indent_right": 0, "space_before": 0, "space_after": 0, "align": "left",  # line_height in pt (None = corpo * 1.2)
+    "line_height": None, "first_line_indent": 0, "indent_left": 0, "indent_right": 0, "space_before": 0, "space_after": 0, "align": "left",  # line_height in pt (None = size * 1.2)
 }
 
 
@@ -36,12 +36,12 @@ def set_path(cfg, dotted, raw):
 
 
 def load_config(args, overrides=None):
-    """Impostazioni di grafica/layout. Strati, dal piu' basso: blocchi ```yaml della nota del volume (`overrides`),
-    --config (file JSON/YAML opzionale), --set. Nessuna chiave e' obbligatoria: ogni valore ha un default nel codice."""
+    """Graphics/layout settings. Layers, from the lowest: ```yaml blocks of the volume note (`overrides`),
+    --config (optional JSON/YAML file), --set. No key is required: every value has a default in the code."""
     cfg = deep_merge({}, overrides or {})
     if args.config:
         extra = Path(args.config).expanduser()
-        deep_merge(cfg, yaml.safe_load(extra.read_text(encoding="utf-8")) or {})    # il JSON e' YAML valido
+        deep_merge(cfg, yaml.safe_load(extra.read_text(encoding="utf-8")) or {})    # JSON is valid YAML
     for item in args.set or []:
         if "=" not in item:
             sys.exit(f"--set requires key=value, got: {item}")
@@ -51,7 +51,7 @@ def load_config(args, overrides=None):
 
 
 def style_cfg(cfg, name, fallback=None):
-    """Stile <name>; se non definito in config usa quello di <fallback> (es. quote -> normal)."""
+    """Style <name>; if not defined in config it uses that of <fallback> (e.g. quote -> normal)."""
     styles = cfg.get("styles", {})
     src = styles.get(name) or (styles.get(fallback) if fallback else None) or {}
     sc = {**DEFAULT_STYLE, **src}
@@ -61,8 +61,8 @@ def style_cfg(cfg, name, fallback=None):
 
 
 def heading_style(cfg, level):
-    """Stile per h<level> (fino a h5): se non definito in config usa il livello
-    definito piu' vicino sopra (h4 assente -> h3, ecc.)."""
+    """Style for h<level> (up to h5): if not defined in config it uses the nearest level
+    defined above (h4 missing -> h3, etc.)."""
     styles = cfg.get("styles", {})
     for n in range(min(level, 5), 0, -1):
         if f"h{n}" in styles:

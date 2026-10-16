@@ -1,7 +1,7 @@
-"""Paragrafi con stile personalizzato: `::: {.nome font="Minion Pro" size=28 weight=bold align=center margin-top=6cm}`.
+"""Paragraphs with a custom style: `::: {.name font="Minion Pro" size=28 weight=bold align=center margin-top=6cm}`.
 
-Gli attributi si risolvono qui (una volta sola) in un dizionario di stile con le stesse chiavi di
-lo stile (`volume.md`, sezione «Stile») → `styles`; i renderer Typst e Word lo applicano al blocco."""
+The attributes are resolved here (once) into a style dictionary with the same keys as
+the style (`volume.md`, "Style" section) → `styles`; the Typst and Word renderers apply it to the block."""
 import re
 
 from .config import style_cfg
@@ -14,14 +14,14 @@ CASES = {"upper", "lower", "smallcaps"}
 
 
 def parse_attrs(text):
-    """'{.titolo size=28 align=center}' -> (['titolo'], {'size': '28', 'align': 'center'})."""
+    """'{.title size=28 align=center}' -> (['title'], {'size': '28', 'align': 'center'})."""
     inner = (text or "").strip().strip("{}")
     attrs = {k: v.strip("\"'") for k, v in ATTR.findall(inner)}
     return CLASS.findall(ATTR.sub("", inner)), attrs
 
 
 def length_pt(spec, size=None):
-    """'6cm', '12pt', '1.5em', '10' (pt) -> punti; None se non valido."""
+    """'6cm', '12pt', '1.5em', '10' (pt) -> points; None if invalid."""
     m = re.fullmatch(r"\s*(-?[0-9]*\.?[0-9]+)\s*(cm|mm|in|pt|px|em)?\s*", str(spec))
     if not m:
         return None
@@ -32,8 +32,8 @@ def length_pt(spec, size=None):
 
 
 def resolve(cfg, classes, attrs, warn=None):
-    """-> stile (dict). Base: lo stile con nome (primo `.nome` definito in config `styles`), altrimenti
-    `normal` senza rientro, allineato a sinistra e senza spazi. Gli attributi lo modificano."""
+    """-> style (dict). Base: the named style (first `.name` defined in config `styles`), otherwise
+    `normal` without indent, left-aligned and without spacing. The attributes modify it."""
     warn = warn or (lambda msg: None)
     named = next((c for c in classes if c in cfg.get("styles", {})), None)
     for c in classes:
@@ -85,7 +85,7 @@ def resolve(cfg, classes, attrs, warn=None):
             sc["tracking"] = n if n is not None else 0
         elif key == "width":
             if re.fullmatch(r"\s*[0-9]*\.?[0-9]+\s*(cm|mm|in|pt|px|%)?\s*", v):
-                sc["width"] = v.strip()      # senza unita' = cm (come per le immagini); % della larghezza utile
+                sc["width"] = v.strip()      # without unit = cm (as for images); % of the usable width
             else:
                 warn(f"invalid width: {v} (e.g. 8cm, 60%)")
         elif key == "case":
@@ -96,5 +96,5 @@ def resolve(cfg, classes, attrs, warn=None):
         else:
             warn(f"unknown attribute: {k}")
     if size_set and "line-height" not in {k.replace("_", "-").lower() for k in attrs}:
-        sc["line_height"] = round(sc["size"] * 1.2, 1)       # interlinea proporzionale alla nuova corpo
+        sc["line_height"] = round(sc["size"] * 1.2, 1)       # line spacing proportional to the new size
     return sc

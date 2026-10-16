@@ -1,11 +1,11 @@
-"""Sorgenti dei capitoli. Ogni sorgente produce un Chapter (lista di blocchi del modello)."""
+"""Chapter sources. Each source produces a Chapter (list of blocks of the model)."""
 from pathlib import Path
 
 
 def resolve_path(value, ch, base_dir, root_key=None):
-    """Percorso da volume.md: espande {id}, {images_dir}, {markdown_dir} e '~'.
-    Se e' relativo lo risolve rispetto a sources.<root_key> (se dato e definito),
-    altrimenti rispetto alla cartella di volume.md."""
+    """Path from volume.md: expands {id}, {images_dir}, {markdown_dir} and '~'.
+    If relative it resolves it against sources.<root_key> (if given and defined),
+    otherwise against the folder of volume.md."""
     src = ch.get("sources", {})
     fmt = {"id": ch.get("id", ""), **{k: v for k, v in src.items()}}
     p = Path(str(value).format(**fmt)).expanduser()

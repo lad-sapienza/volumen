@@ -1,15 +1,15 @@
-"""Riduce un PDF con Ghostscript (stessa ricetta dello script `shrink-pdf`): immagini ricampionate,
-contenuto vettoriale intatto. Adatto alle bozze da inviare, non alla stampa."""
+"""Reduces a PDF with Ghostscript (same recipe as the `shrink-pdf` script): images resampled,
+vector content intact. Suitable for drafts to send around, not for print."""
 import shutil
 import subprocess
 import sys
 from pathlib import Path
 
-PRESETS = ("screen", "ebook", "printer")     # screen = 72 dpi (piu' piccolo), ebook = 150 dpi, printer = 300 dpi
+PRESETS = ("screen", "ebook", "printer")     # screen = 72 dpi (smallest), ebook = 150 dpi, printer = 300 dpi
 
 
 def shrink_pdf(src, dst=None, preset="screen"):
-    """Scrive `<src>-shrink.pdf` (o dst) e lo restituisce; l'originale resta com'e'."""
+    """Writes `<src>-shrink.pdf` (or dst) and returns it; the original stays as it is."""
     src = Path(src)
     dst = Path(dst) if dst else src.with_name(f"{src.stem}-shrink.pdf")
     if not shutil.which("gs"):
@@ -21,7 +21,7 @@ def shrink_pdf(src, dst=None, preset="screen"):
     if r.returncode != 0:
         sys.exit("Ghostscript failed (see errors above).")
     from . import annotate
-    annotate.restore_popups(dst)          # gs scarta i Popup delle annotazioni (--annotations)
+    annotate.restore_popups(dst)          # gs drops the annotation Popups (--annotations)
     return dst
 
 

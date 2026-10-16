@@ -1,7 +1,7 @@
 import esbuild from "esbuild";
 import builtins from "builtin-modules";
 
-const mode = process.argv[2];           // production | test | (vuoto = dev, con watch)
+const mode = process.argv[2];           // production | test | (empty = dev, with watch)
 const common = {
   bundle: true,
   format: "cjs",

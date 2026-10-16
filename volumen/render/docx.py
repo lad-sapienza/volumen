@@ -1,4 +1,4 @@
-"""Renderer DOCX (python-docx): consuma i blocchi del modello."""
+"""DOCX renderer (python-docx): consumes the blocks of the model."""
 import io
 import re
 import struct
@@ -19,7 +19,7 @@ from ..model import INLINE_MD
 
 try:
     from PIL import Image
-except ImportError:  # le dimensioni immagine saranno solo a larghezza massima
+except ImportError:  # image sizes will be at maximum width only
     Image = None
 
 ALIGN = {
@@ -46,10 +46,10 @@ def apply_style(style, sc):
         if rfonts.get(qn(attr)) is not None:
             del rfonts.attrib[qn(attr)]
     pf = style.paragraph_format
-    # Altezza di riga ESATTA in pt (come Typst): stesso risultato nei due output.
+    # EXACT line height in pt (as in Typst): same result in both outputs.
     pf.line_spacing_rule = WD_LINE_SPACING.EXACTLY
     pf.line_spacing = Pt(sc["line_height"])
-    pf.first_line_indent = Pt(sc["first_line_indent"])  # pt; 0 = nessun rientro; negativo = sporgente
+    pf.first_line_indent = Pt(sc["first_line_indent"])  # pt; 0 = no indent; negative = hanging
     if sc["indent_left"]:
         pf.left_indent = Pt(sc["indent_left"])
     if sc["indent_right"]:
@@ -78,7 +78,7 @@ def setup_document(cfg):
     sec.top_margin = Cm(pg.get("margin_top_cm", 2.5))
     sec.bottom_margin = Cm(pg.get("margin_bottom_cm", 2.5))
     if "margin_interior" in pg or "margin_exterior" in pg:
-        # margini speculari (rilegatura): left = interno, right = esterno
+        # mirrored margins (binding): left = interior, right = exterior
         sec.left_margin = Cm(pg.get("margin_interior", pg.get("margin_left_cm", 2.5)))
         sec.right_margin = Cm(pg.get("margin_exterior", pg.get("margin_right_cm", 2.5)))
         doc.settings.element.find(qn("w:defaultTabStop")).addprevious(OxmlElement("w:mirrorMargins"))
@@ -86,10 +86,10 @@ def setup_document(cfg):
         sec.left_margin = Cm(pg.get("margin_left_cm", 2.5))
         sec.right_margin = Cm(pg.get("margin_right_cm", 2.5))
 
-    # sillabazione automatica: spenta di default (typography.hyphenate), nessuna parola spezzata a fine riga
+    # automatic hyphenation: off by default (typography.hyphenate), no word split at the end of a line
     hyph = OxmlElement("w:autoHyphenation")
     hyph.set(qn("w:val"), "true" if cfg.get("typography", {}).get("hyphenate", False) else "false")
-    doc.settings.element.find(qn("w:defaultTabStop")).addnext(hyph)   # posizione prevista dallo schema
+    doc.settings.element.find(qn("w:defaultTabStop")).addnext(hyph)   # position foreseen by the schema
     apply_style(doc.styles["Normal"], style_cfg(cfg, "normal"))
     for n in range(1, 6):
         apply_style(doc.styles[f"Heading {n}"], style_cfg(cfg, heading_style(cfg, n)))
@@ -152,10 +152,10 @@ def set_page_number_start(section, start):
 
 
 def add_running_header(doc, section, cfg, usable, title=None, first=True, left_title=None):
-    """Intestazione corrente, specchiata fra pagine dispari e pari: il titolo
-    (da config) verso l'interno (rilegatura), il numero di pagina verso
-    l'esterno, con una riga sotto. Dispari: titolo a sinistra, numero a
-    destra. Pari: numero a sinistra, a destra left_title (autore) se dato, altrimenti il titolo."""
+    """Running head, mirrored between odd and even pages: the title
+    (from config) towards the inside (binding), the page number towards
+    the outside, with a rule below. Odd: title on the left, number on the
+    right. Even: number on the left, on the right left_title (author) if given, otherwise the title."""
     hcfg = cfg.get("header", {})
     if title is None:
         title = hcfg.get("title", "")
@@ -168,12 +168,12 @@ def add_running_header(doc, section, cfg, usable, title=None, first=True, left_t
     section.header.is_linked_to_previous = False
     section.even_page_header.is_linked_to_previous = False
     if hcfg.get("skip_chapter_first_page", True):
-        # prima pagina della sezione (= del capitolo) senza intestazione: la first-page header e' vuota
+        # first page of the section (= of the chapter) without a running head: the first-page header is empty
         section.different_first_page_header_footer = True
         section.first_page_header.is_linked_to_previous = False
     if first:
         set_page_number_start(section, hcfg.get("start_page", 1))
-    else:   # la numerazione prosegue: la sezione clonata non deve ripartire da start
+    else:   # numbering continues: the cloned section must not restart from start
         pg = section._sectPr.find(qn("w:pgNumType"))
         if pg is not None and pg.get(qn("w:start")) is not None:
             del pg.attrib[qn("w:start")]
@@ -213,7 +213,7 @@ FOOTNOTES_XML = (
 
 
 def footnotes_part(doc_part):
-    """Parte /word/footnotes.xml del documento (creata al primo uso: python-docx non la gestisce)."""
+    """The /word/footnotes.xml part of the document (created on first use: python-docx does not handle it)."""
     from docx.opc.constants import RELATIONSHIP_TYPE as RT
     from docx.opc.packuri import PackURI
     from docx.opc.part import XmlPart
@@ -228,8 +228,8 @@ def footnotes_part(doc_part):
 
 
 def add_footnote(par, note_text):
-    """Vera nota a pie di pagina Word: richiamo (apice) nel paragrafo + testo in footnotes.xml,
-    con gli stili 'Footnote Text' / 'Footnote Reference' (styles.footnote)."""
+    """Real Word footnote: reference mark (superscript) in the paragraph + text in footnotes.xml,
+    with the 'Footnote Text' / 'Footnote Reference' styles (styles.footnote)."""
     from docx.text.paragraph import Paragraph
     root = footnotes_part(par.part).element
     ids = [int(f.get(qn("w:id"))) for f in root.findall(qn("w:footnote"))]
@@ -259,20 +259,20 @@ def add_footnote(par, note_text):
     run._r.append(fr)
 
 
-HIGHLIGHT = "FFEB3B"      # colore evidenziato (typography.highlight_color)
-LINKS = {}                # stile dei link (config `links`: color, underline, bold); vuoto = come il testo
+HIGHLIGHT = "FFEB3B"      # highlight colour (typography.highlight_color)
+LINKS = {}                # link style (config `links`: color, underline, bold); empty = like the text
 
 
 def add_chapter_link(par, anchor, text):
-    """Collegamento interno al capitolo (segnalibro `anchor`): le run restano quelle normali,
-    senza stile 'Hyperlink', cosi' la resa non cambia."""
+    """Internal link to the chapter (bookmark `anchor`): the runs stay the normal ones,
+    without the 'Hyperlink' style, so the look does not change."""
     link = OxmlElement("w:hyperlink")
     link.set(qn("w:anchor"), anchor)
     link.set(qn("w:history"), "1")
     par._p.append(link)
     n = len(par.runs)
     add_md_runs(par, text)
-    for r in par.runs[n:]:          # le run create dopo il link vanno dentro il link
+    for r in par.runs[n:]:          # runs created after the link go inside the link
         if LINKS.get("color"):
             r.font.color.rgb = RGBColor.from_string(LINKS["color"].upper())
         if LINKS.get("underline"):
@@ -283,7 +283,7 @@ def add_chapter_link(par, anchor, text):
 
 
 def add_bookmark(par, name, bid):
-    """Segnalibro attorno al paragrafo (destinazione dei link tra capitoli)."""
+    """Bookmark around the paragraph (destination of the links between chapters)."""
     start, end = OxmlElement("w:bookmarkStart"), OxmlElement("w:bookmarkEnd")
     for el in (start, end):
         el.set(qn("w:id"), str(bid))
@@ -300,7 +300,7 @@ TRACK_ID = [9000]
 
 
 def track_change(par, runs, deleted):
-    """Avvolge i run in <w:ins> / <w:del> (modifica tracciata, autore e data da annotations)."""
+    """Wraps the runs in <w:ins> / <w:del> (tracked change, author and date from annotations)."""
     from datetime import datetime, timezone
     if not runs:
         return
@@ -319,10 +319,10 @@ def track_change(par, runs, deleted):
 
 
 def add_styled_text(doc, st, usable_cm=None):
-    """Paragrafi con stile personalizzato (`::: {attributi}`): font, corpo, peso, allineamento, spazi."""
+    """Paragraphs with a custom style (`::: {attributes}`): font, size, weight, alignment, spacing."""
     sc = st.style
     paras = st.text.split("\n\n")
-    # width: i paragrafi si restringono con rientri destro/sinistro secondo l'allineamento del blocco
+    # width: paragraphs narrow with right/left indents according to the block's alignment
     left_in = right_in = 0.0
     wcm = model.length_cm(sc.get("width"), usable_cm or 0)
     if wcm and usable_cm and wcm < usable_cm:
@@ -364,13 +364,13 @@ def add_styled_text(doc, st, usable_cm=None):
                 r.font.small_caps = True
             if sc.get("tracking"):
                 sp = OxmlElement("w:spacing")
-                sp.set(qn("w:val"), str(int(round(sc["tracking"] * 20))))     # ventesimi di punto
+                sp.set(qn("w:val"), str(int(round(sc["tracking"] * 20))))     # twentieths of a point
                 r._r.get_or_add_rPr().append(sp)
 
 
 def add_md_runs(par, text):
-    # Le note vanno risolte per prime: possono contenere un link a capitolo, che altrimenti spezzerebbe
-    # il testo fra NOTE_OPEN e NOTE_CLOSE (e il ramo dei link richiamerebbe se stesso all'infinito).
+    # Notes must be resolved first: they may contain a chapter link, which would otherwise split
+    # the text between NOTE_OPEN and NOTE_CLOSE (and the link branch would call itself endlessly).
     if model.NOTE_OPEN in text:
         pos = 0
         for m in model.NOTE.finditer(text):
@@ -378,7 +378,7 @@ def add_md_runs(par, text):
             add_footnote(par, m.group(1))
             pos = m.end()
         rest = text[pos:]
-        if model.NOTE_OPEN in rest:      # nota non chiusa (testo troncato): si toglie il marcatore
+        if model.NOTE_OPEN in rest:      # unclosed note (truncated text): the marker is removed
             rest = rest.replace(model.NOTE_OPEN, "")
         add_md_runs(par, rest)
         return
@@ -389,7 +389,7 @@ def add_md_runs(par, text):
             add_chapter_link(par, model.chapter_anchor(m.group(1)), m.group(2))
             pos = m.end()
         rest = text[pos:]
-        if model.LINK_OPEN in rest:      # link non chiuso: si toglie il marcatore
+        if model.LINK_OPEN in rest:      # unclosed link: the marker is removed
             rest = rest.replace(model.LINK_OPEN, "")
         add_md_runs(par, rest)
         return
@@ -402,12 +402,12 @@ def add_md_runs(par, text):
             if text:
                 add_md_runs(par, text)
             if model.ANNOT["enabled"] and DOC is not None and par.part is DOC.part:
-                runs = par.runs[n:] or [par.add_run("")]     # commento puntuale: ancora vuota
+                runs = par.runs[n:] or [par.add_run("")]     # point comment: empty anchor
                 DOC.add_comment(runs, text=comment, author=model.ANNOT["author"],
                                 initials=model.ANNOT["initials"])
         elif model.critic_edit(part) is not None:
             old, new = model.critic_edit(part)
-            if model.ANNOT["enabled"]:                   # revisione: vere modifiche tracciate di Word
+            if model.ANNOT["enabled"]:                   # revision: real Word tracked changes
                 if old:
                     n = len(par.runs)
                     add_md_runs(par, old)
@@ -422,9 +422,9 @@ def add_md_runs(par, text):
                     add_md_runs(par, keep)
         elif model.mark_text(part) is not None:
             n = len(par.runs)
-            add_md_runs(par, model.mark_text(part))      # dentro l'evidenziato: corsivo, grassetto...
+            add_md_runs(par, model.mark_text(part))      # inside the highlight: italic, bold...
             for r in par.runs[n:]:
-                shd = OxmlElement("w:shd")               # sfondo a colore libero (piu' di highlight di Word)
+                shd = OxmlElement("w:shd")               # free-colour background (more than Word's highlight)
                 shd.set(qn("w:val"), "clear")
                 shd.set(qn("w:color"), "auto")
                 shd.set(qn("w:fill"), HIGHLIGHT)
@@ -446,7 +446,7 @@ def add_md_runs(par, text):
 
 
 def add_text_block(doc, text):
-    """Testo del DB: paragrafi separati da riga vuota, a-capo singoli = line break."""
+    """DB text: paragraphs separated by an empty line, single line breaks = line break."""
     if not text or not text.strip():
         return False
     for block in re.split(r"\n\s*\n", text.strip()):
@@ -520,9 +520,9 @@ def set_cell_margins(table, top=20, bottom=20, left=50, right=50):
 
 
 def add_spacer(doc, pt):
-    """Spazio verticale esatto (in punti), indipendente da cosa precede/segue:
-    riga vuota a interlinea singola con testo a corpo minimo, così l'unico
-    contributo visibile è lo space_after impostato."""
+    """Exact vertical space (in points), independent of what precedes/follows:
+    an empty line at single spacing with minimum-size text, so the only
+    visible contribution is the space_after that was set."""
     p = doc.add_paragraph()
     p.paragraph_format.space_before = Pt(0)
     p.paragraph_format.space_after = Pt(pt)
@@ -532,8 +532,8 @@ def add_spacer(doc, pt):
 
 def add_table(doc, header, rows, cfg, usable, ratios=None, aligns=None, empty=None, caption="",
               markup=True):
-    """Tabella con intestazione ripetuta a ogni pagina; larghezze da ratios (o table.col_ratios),
-    bordi/regole da table.*; celle con markup inline (**grassetto**, *corsivo*)."""
+    """Table with a header repeated on every page; widths from ratios (or table.col_ratios),
+    borders/rules from table.*; cells with inline markup (**bold**, *italic*)."""
     tcfg = cfg.get("table", {})
     n = len(header)
     ratios = ratios or [1] * n
@@ -593,7 +593,7 @@ def add_table(doc, header, rows, cfg, usable, ratios=None, aligns=None, empty=No
             p = fill(c, v if v is not None else "", "Volumen Table Body")
             if aligns[i] != "left":
                 p.alignment = ALIGN.get(aligns[i], WD_ALIGN_PARAGRAPH.LEFT)
-    # se non ci sono righe, la tabella resta con solo l'intestazione ("sempre mostrata")
+    # if there are no rows, the table keeps only the header ("always shown")
     space_after = tcfg.get("space_after_pt", 14)
     if space_after:
         add_spacer(doc, space_after)
@@ -613,21 +613,21 @@ def image_size(path):
 def is_landscape(path):
     size = image_size(path)
     if not size or not size[0] or not size[1]:
-        return True  # dimensioni non leggibili: trattata come orizzontale
+        return True  # dimensions not readable: treated as landscape
     w, h = size
     return w >= h
 
 
 def _exif_tiff_start(data):
-    """Offset dell'header TIFF nel primo segmento APP1 'Exif' di un JPEG, None se
-    assente. Scorre i marker: l'Exif non è sempre il primo segmento (i JPEG DJI
-    hanno prima un APP0/JFIF)."""
+    """Offset of the TIFF header in the first 'Exif' APP1 segment of a JPEG, None if
+    absent. It walks the markers: Exif is not always the first segment (DJI JPEGs
+    have an APP0/JFIF first)."""
     if data[0:2] != b"\xff\xd8":
         return None
     off = 2
     while off + 4 <= len(data) and data[off] == 0xFF:
         marker = data[off + 1]
-        if marker == 0xDA:  # SOS: finiti i segmenti di metadati
+        if marker == 0xDA:  # SOS: metadata segments are over
             break
         if marker == 0xE1 and data[off + 4:off + 10] == b"Exif\x00\x00":
             return off + 10
@@ -636,19 +636,19 @@ def _exif_tiff_start(data):
 
 
 def fix_broken_exif_ascii_tags(data):
-    """Neutralizza, nel primo segmento Exif di un JPEG (anche se preceduto da
-    altri segmenti, es. un JFIF), i tag ASCII (IFD0) il cui valore occupa
-    4 byte o meno (es. Make='DJI').
+    """Neutralises, in the first Exif segment of a JPEG (even if preceded by
+    other segments, e.g. a JFIF), the ASCII tags (IFD0) whose value takes
+    4 bytes or less (e.g. Make='DJI').
 
-    Bug di python-docx: per specifica TIFF un valore di 4 byte o meno va letto
-    inline nel campo stesso, ma il parser Exif di python-docx lo tratta sempre
-    come puntatore: legge quei 4 byte come un offset a vanvera e va in crash
-    (UnexpectedEndOfFileError) durante add_picture(). Qui si ritipizza il tag
-    da ASCII a BYTE (tipo TIFF valido, ma non gestito nello specifico da
-    python-docx: viene ignorato senza leggere altro dallo stream). Cambia solo
-    la copia in memoria usata per l'incorporazione, il file sorgente non è
-    mai toccato; la firma Exif resta al suo posto così il formato è ancora
-    riconosciuto correttamente.
+    python-docx bug: per the TIFF specification a value of 4 bytes or less must be read
+    inline in the field itself, but python-docx's Exif parser always treats it
+    as a pointer: it reads those 4 bytes as a random offset and crashes
+    (UnexpectedEndOfFileError) during add_picture(). Here the tag is retyped
+    from ASCII to BYTE (a valid TIFF type, but not specifically handled by
+    python-docx: it is ignored without reading anything else from the stream). Only
+    the in-memory copy used for embedding changes, the source file is
+    never touched; the Exif signature stays in place so the format is still
+    recognised correctly.
     """
     tiff_start = _exif_tiff_start(data)
     if tiff_start is None:
@@ -664,14 +664,14 @@ def fix_broken_exif_ascii_tags(data):
         entry_off = ifd0_offset + 2 + idx * 12
         field_type = struct.unpack_from(fmt + "H", out, entry_off + 2)[0]
         value_count = struct.unpack_from(fmt + "I", out, entry_off + 4)[0]
-        if field_type == 2 and value_count <= 4:  # ASCII che andrebbe inline
-            struct.pack_into(fmt + "H", out, entry_off + 2, 1)  # ritipizza a BYTE
+        if field_type == 2 and value_count <= 4:  # ASCII that would go inline
+            struct.pack_into(fmt + "H", out, entry_off + 2, 1)  # retype to BYTE
     return bytes(out)
 
 
 def _embed_picture(paragraph, path, width, an):
-    """Prova a incorporare l'immagine; se fallisce ritenta con l'Exif corretto
-    (vedi fix_broken_exif_ascii_tags). Ritorna True se incorporata, False altrimenti."""
+    """Tries to embed the image; if it fails, retries with the corrected Exif
+    (see fix_broken_exif_ascii_tags). Returns True if embedded, False otherwise."""
     try:
         paragraph.add_run().add_picture(str(path), width=width)
         return True
@@ -712,16 +712,16 @@ def add_image(container, path, cfg, caption=None, max_width=None, max_height=Non
     width = compute_width(path, max_w, max_h)
     p = paragraph if paragraph is not None else container.add_paragraph()
     p.alignment = ALIGN.get(align, WD_ALIGN_PARAGRAPH.CENTER)
-    # Interlinea singola (auto) e nessun rientro: con l'interlinea "esatta" dello
-    # stile Normal Word ritaglia l'immagine inline all'altezza di una riga.
+    # Single (auto) line spacing and no indent: with the "exact" line spacing of the
+    # Word Normal style, the inline image is clipped to the height of one line.
     p.paragraph_format.line_spacing_rule = WD_LINE_SPACING.SINGLE
     p.paragraph_format.first_line_indent = Pt(0)
     if space_before_pt is None:
         space_before_pt = icfg.get("figure_space_before_pt", 4)
     if space_after_pt is None:
-        space_after_pt = icfg.get("figure_space_after_pt")   # None = stile Caption / 6pt senza didascalia
+        space_after_pt = icfg.get("figure_space_after_pt")   # None = Caption style / 6pt without a caption
     p.paragraph_format.space_before = Pt(space_before_pt)
-    # con didascalia lo spazio "sotto" va sulla didascalia stessa, non sull'immagine
+    # with a caption the "below" space goes on the caption itself, not on the image
     p.paragraph_format.space_after = Pt(0 if caption else (6 if space_after_pt is None else space_after_pt))
     p.paragraph_format.keep_with_next = bool(caption)
     if not _embed_picture(p, path, width, an):
@@ -746,7 +746,7 @@ def add_bottom_border(pPr, size_eighths_pt, color, space_pt=2):
 
 
 def set_vertical_alignment(section, value):
-    """value: 'top' | 'center' | 'both' | 'bottom' (allineamento verticale della sezione)."""
+    """value: 'top' | 'center' | 'both' | 'bottom' (vertical alignment of the section)"""
     sectPr = section._sectPr
     el = sectPr.find(qn("w:vAlign"))
     if el is None:
@@ -756,8 +756,8 @@ def set_vertical_alignment(section, value):
 
 
 def add_figures_title_page(doc, title):
-    """Sezione dedicata a piena pagina con 'FIGURES' centrato in orizzontale e verticale,
-    isolata da interruzioni di sezione prima e dopo."""
+    """Dedicated full-page section with 'FIGURES' centred horizontally and vertically,
+    isolated by section breaks before and after."""
     title_section = doc.add_section(WD_SECTION.NEW_PAGE)
     set_vertical_alignment(title_section, "center")
     doc.add_heading(title, level=1)
@@ -766,9 +766,9 @@ def add_figures_title_page(doc, title):
 
 
 def add_quote(doc, q, cfg):
-    """Citazione: rientrata a sinistra e destra (styles.quote). space_before/space_after
-    dello stile sono lo spazio ESTERNO al blocco; fra i paragrafi interni c'e' paragraph_gap;
-    la fonte segue a capo, allineata a destra, senza spazio sopra."""
+    """Quotation: indented on the left and right (styles.quote). The style's space_before/space_after
+    are the space OUTSIDE the block; between inner paragraphs there is paragraph_gap;
+    the source follows on a new line, right-aligned, with no space above."""
     sc = style_cfg(cfg, "quote", fallback="normal")
     gap = sc.get("paragraph_gap", 4)
     paras = [x.strip() for x in re.split(r"\n\s*\n", q.text.strip()) if x.strip()]
@@ -781,7 +781,7 @@ def add_quote(doc, q, cfg):
         pf.space_after = Pt(0 if (last and q.source) else (sc["space_after"] if last else gap))
         pf.keep_with_next = bool(q.source) and last
         if last:
-            pf.keep_together = True        # l'ultimo capoverso non si spezza fra due pagine
+            pf.keep_together = True        # the last paragraph does not split across two pages
             pf.widow_control = True
     if q.source:
         p = doc.add_paragraph(style="Volumen Quote")
@@ -792,9 +792,9 @@ def add_quote(doc, q, cfg):
 
 
 def add_list(doc, lb, cfg):
-    """Elenco con marcatori e numeri scritti nel testo (niente numbering.xml): indentazione
-    e sporgenza da styles.list (indent_left, first_line_indent negativo); ogni livello
-    annidato aggiunge lo stesso rientro."""
+    """List with markers and numbers written in the text (no numbering.xml): indentation
+    and hanging from styles.list (indent_left, negative first_line_indent); each nested
+    level adds the same indent."""
     sc = style_cfg(cfg, "list", fallback="normal")
     step = sc["indent_left"] or 18
     counters = {}
@@ -815,8 +815,8 @@ def add_list(doc, lb, cfg):
 
 
 def add_part_title_page(doc, title, level, cfg, usable):
-    """Pagina isolata con il solo titolo, centrato in orizzontale e verticale, senza
-    intestazione corrente. La sezione successiva (capitolo seguente) la crea il capitolo."""
+    """Page on its own with only the title, centred horizontally and vertically, without a
+    running head. The following section (next chapter) is created by the chapter."""
     sec = doc.add_section(WD_SECTION.NEW_PAGE)
     set_vertical_alignment(sec, "center")
     if cfg.get("header", {}).get("enabled", True):
@@ -836,7 +836,7 @@ def strip_table_borders(table):
 
 
 def add_portrait_pair(doc, cfg, usable, left, right, an=None):
-    """Due immagini verticali affiancate in una tabella senza bordi."""
+    """Two portrait images side by side in a table without borders."""
     gap = Cm(0.5)
     col_w = int((usable - gap) / 2)
     table = doc.add_table(rows=1, cols=2)
@@ -853,22 +853,22 @@ def add_portrait_pair(doc, cfg, usable, left, right, an=None):
 
 
 def add_figures_section(doc, cfg, usable, usable_h, figures, an=None):
-    """Immagini orizzontali impilate N per foglio (piena larghezza); verticali a due
-    affiancate quando adiacenti, altrimenti da sole ma alte quanto un'orizzontale
-    (stesso "slot" di griglia), così una coppia orizzontale+verticale isolata
-    entra sempre in un'unica pagina."""
+    """Landscape images stacked N per sheet (full width); portrait ones two
+    side by side when adjacent, otherwise alone but as tall as a landscape one
+    (same grid "slot"), so an isolated landscape+portrait pair
+    always fits on a single page."""
     icfg = cfg.get("images", {})
     default_max_w = Cm(icfg.get("max_width_cm", 15))
     per_page = icfg.get("figures_landscape_per_page")
-    landscape_max_h = Cm(icfg.get("max_height_cm", 20))     # senza figures_landscape_per_page: il tetto delle figure
+    landscape_max_h = Cm(icfg.get("max_height_cm", 20))     # without figures_landscape_per_page: the ceiling on figures
     if per_page:
-        # riserva per didascalia + spazio sopra/sotto ciascuna figura (figure_space_before/after_pt)
+        # reserve for caption + space above/below each figure (figure_space_before/after_pt)
         reserve = (Cm(icfg.get("figures_row_reserve_cm", 1.2)) + Pt(icfg.get("figure_space_before_pt", 4))
                    + Pt(icfg.get("figure_space_after_pt") or 0))
         slot_h = int(usable_h / per_page)
         landscape_max_h = max(int(Cm(2)), slot_h - reserve)
 
-    last_landscape_width = default_max_w  # riferimento finché non appare la prima orizzontale
+    last_landscape_width = default_max_w  # reference until the first landscape appears
     i, n = 0, len(figures)
     while i < n:
         path, caption = figures[i]
@@ -880,18 +880,18 @@ def add_figures_section(doc, cfg, usable, usable_h, figures, an=None):
             add_portrait_pair(doc, cfg, usable, figures[i], figures[i + 1], an=an)
             i += 2
         else:
-            # verticale isolata: stesso slot (altezza) e stessa larghezza dell'ultima orizzontale
+            # isolated portrait: same slot (height) and same width as the last landscape
             add_image(doc, path, cfg, caption, max_width=last_landscape_width,
                       max_height=landscape_max_h, an=an)
             i += 1
 
 
 # --------------------------------------------------------------------------
-# Volume -> documento
+# Volume -> document
 # --------------------------------------------------------------------------
 def add_toc_field(doc, depth):
-    """Campo indice: Word lo popola all'apertura (accetta l'aggiornamento dei campi)
-    o con tasto destro > Aggiorna campo."""
+    """Table of contents field: Word fills it on opening (accept the field update)
+    or via right click > Update field."""
     p = doc.add_paragraph()
     run = p.add_run()
     for kind, text in (("begin", None), (None, f'TOC \\o "1-{depth}" \\h \\z \\u'),
@@ -901,7 +901,7 @@ def add_toc_field(doc, depth):
             el = OxmlElement("w:fldChar")
             el.set(qn("w:fldCharType"), kind)
             if kind == "begin":
-                el.set(qn("w:dirty"), "true")   # chiede a Word di aggiornarlo all'apertura
+                el.set(qn("w:dirty"), "true")   # asks Word to update it on opening
             run._r.append(el)
         elif text.startswith("TOC"):
             it = OxmlElement("w:instrText")
@@ -915,7 +915,7 @@ def add_toc_field(doc, depth):
     doc.add_page_break()
 
 
-DOC = None               # documento in costruzione (serve ai commenti, che stanno nel documento principale)
+DOC = None               # document under construction (needed for comments, which live in the main document)
 
 
 def build_document(cfg, volume, an):
@@ -932,8 +932,8 @@ def build_document(cfg, volume, an):
 
     first_sec = doc.sections[0]
     if volume.front:
-        # frontespizio e colophon: prima sezione senza intestazione ne' numero; il resto parte su pagina destra
-        # e la numerazione riparte (come nel PDF)
+        # title page and colophon: first section without running head nor number; the rest starts on a right-hand page
+        # and the numbering restarts (as in the PDF)
         for fi, fch in enumerate(volume.front):
             if fi > 0:
                 doc.add_page_break()
@@ -983,15 +983,15 @@ def build_document(cfg, volume, an):
                 if first:
                     bookmark_id[0] += 1
                     add_bookmark(h, model.chapter_anchor(ch.id), bookmark_id[0])
-                elif b.anchor:                      # scheda di un complesso: destinazione dei link [ID](ID.md)
+                elif b.anchor:                      # entry of a complex: destination of the [ID](ID.md) links
                     bookmark_id[0] += 1
                     add_bookmark(h, model.chapter_anchor(b.anchor), bookmark_id[0])
                 if b.level == 1 and first:
-                    # titolo h1 di capitolo: parte a offset_pct dell'altezza utile
+                    # chapter h1 title: starts at offset_pct of the usable height
                     h.paragraph_format.space_before = Pt(usable_h / 12700
                                                         * cfg.get("chapter_opener", {}).get("offset_pct", 33) / 100)
                 if first and ch.authors:
-                    # sotto il titolo (di qualsiasi livello: anche i sotto-capitoli), gli autori in grigio
+                    # under the title (of any level: also sub-chapters), the authors in grey
                     ap = doc.add_paragraph(style="Volumen Chapter Author")
                     ap.add_run(", ".join(ch.authors))
                 if b.page_break_before:
@@ -1011,15 +1011,15 @@ def build_document(cfg, volume, an):
             elif isinstance(b, model.ListBlock):
                 add_list(doc, b, cfg)
             elif isinstance(b, model.Figure) and b.klass in fig_classes:
-                # Classe di figura (images.classes.<nome>): larghezza scollegata da images.max_width_cm/
-                # max_height_cm (width_pct della larghezza utile), altezza secondo le proporzioni.
+                # Figure class (images.classes.<name>): width decoupled from images.max_width_cm/
+                # max_height_cm (width_pct of the usable width), height according to the proportions.
                 fc = fig_classes[b.klass]
                 add_image(doc, b.path, cfg, b.caption, an=an,
                           max_width=int(usable * fc.get("width_pct", 100) / 100), max_height=Cm(1000),
                           space_before_pt=fc.get("space_before_pt", icfg.get("figure_space_before_pt", 4)),
                           space_after_pt=fc.get("space_after_pt", icfg.get("figure_space_before_pt", 4)))
             elif isinstance(b, model.Figure):
-                # width/height espliciti (attributi Markdown): scavalcano i tetti; % = larghezza utile
+                # explicit width/height (Markdown attributes): they override the ceilings; % = usable width
                 usable_cm = usable / 360000
                 w_cm = model.length_cm(b.width, usable_cm)
                 h_cm = model.length_cm(b.height, usable_cm)
@@ -1029,7 +1029,7 @@ def build_document(cfg, volume, an):
                           "max_height": Cm(h_cm) if h_cm else Cm(1000)}
                 add_image(doc, b.path, cfg, b.caption, an=an, **kw)
             elif isinstance(b, model.Table):
-                tc = table_classes.get(b.klass, {})      # classe di tabella: table.classes.<nome>
+                tc = table_classes.get(b.klass, {})      # table class: table.classes.<name>
                 add_table(doc, b.header, b.rows, cfg, usable, ratios=tc.get("col_ratios") or b.ratios, aligns=b.aligns,
                           caption=b.caption, empty=tc.get("empty_cell", cfg.get("table", {}).get("empty_cell", "–")),
                           markup=tc.get("markup", True))

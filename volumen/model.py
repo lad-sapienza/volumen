@@ -1,111 +1,111 @@
-"""Modello intermedio del volume: cio' che i sorgenti producono e i renderer consumano."""
+"""Intermediate model of the volume: what the sources produce and the renderers consume."""
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Optional
 
 
-# Nota a pie di pagina inline: la sorgente sostituisce [^n] con NOTE_OPEN + testo della nota + NOTE_CLOSE;
-# i renderer la trasformano in una vera nota (Typst #footnote, Word footnotes.xml).
+# Inline footnote: the source replaces [^n] with NOTE_OPEN + note text + NOTE_CLOSE;
+# the renderers turn it into a real note (Typst #footnote, Word footnotes.xml).
 NOTE_OPEN, NOTE_CLOSE = "\x03", "\x04"
 NOTE = re.compile(f"{NOTE_OPEN}(.*?){NOTE_CLOSE}", re.S)
-# Link a un altro capitolo: LINK_OPEN + id capitolo + "|" + testo + LINK_CLOSE (cliccabile, senza cambiare la resa)
+# Link to another chapter: LINK_OPEN + chapter id + "|" + text + LINK_CLOSE (clickable, without changing the look)
 LINK_OPEN, LINK_CLOSE = "\x05", "\x06"
 CHLINK = re.compile(f"{LINK_OPEN}([^|{LINK_CLOSE}]*)\\|(.*?){LINK_CLOSE}", re.S)
 
 
 def strip_chapter_links(text):
-    """Toglie i marcatori dei link tra capitoli lasciando il testo (dove il link non e' supportato)."""
+    """Removes the markers of links between chapters, keeping the text (where the link is not supported)."""
     return CHLINK.sub(lambda m: m.group(2), text) if isinstance(text, str) and LINK_OPEN in text else text
 
 
 def chapter_anchor(cid):
-    """Nome di etichetta/segnalibro del capitolo: solo lettere, cifre e '_' (valido in Typst e Word)."""
+    """Label/bookmark name of the chapter: only letters, digits and '_' (valid in Typst and Word)."""
     return "ch_" + re.sub(r"\W", "_", str(cid))
 
-# grassetto/corsivo: il corsivo con _ solo ai bordi di parola (non dentro URL o nomi_con_underscore)
-# barrato: ~~testo~~
-# evidenziato: ==testo== (Obsidian/Pandoc mark) oppure [testo]{.mark} (span Pandoc)
-# annotazioni (CriticMarkup): {==testo==}{>>commento<<} su un passo, {>>commento<<} puntuale
+# bold/italic: italic with _ only at word edges (not inside URLs or names_with_underscores)
+# strikethrough: ~~text~~
+# highlight: ==text== (Obsidian/Pandoc mark) or [text]{.mark} (Pandoc span)
+# annotations (CriticMarkup): {==text==}{>>comment<<} on a passage, {>>comment<<} point
 INLINE_MD = re.compile(r"(\{\+\+[^\n]*?\+\+\}|\{--[^\n]*?--\}|\{~~[^\n]*?~>[^\n]*?~~\}|\{==[^\n]*?==\}\{(?:[A-Za-z_]+=\"[^\"\n]*\"\s*)*>>[^\n]*?<<\}|\{(?:[A-Za-z_]+=\"[^\"\n]*\"\s*)*>>[^\n]*?<<\}|~~[^~\n]+~~|==(?!=)(?:[^=\n]|=(?!=))+==|\[[^\]\n]+\]\{\.mark\}|\*\*[^*]+\*\*|\^[^^\s]+\^|\*[^*]+\*|(?<![\w\\])_[^_]+_(?!\w))")
 
 
 @dataclass
 class Heading:
-    level: int                    # 1..5, corrisponde agli stili h1..h5
+    level: int                    # 1..5, matches the styles h1..h5
     text: str
     page_break_before: bool = False
-    anchor: Optional[str] = None  # id di un link interno (es. scheda di un complesso): [testo](ID.md)
+    anchor: Optional[str] = None  # id of an internal link (e.g. entry of a complex): [text](ID.md)
 
 
 @dataclass
 class Text:
-    """Paragrafi separati da riga vuota; a-capo singoli = line break; markup inline **/*/_."""
+    """Paragraphs separated by an empty line; single line breaks = line break; inline markup **/*/_."""
     text: str
-    columns: int = 1              # >1: testo a colonne (solo dove il renderer lo supporta)
+    columns: int = 1              # >1: multi-column text (only where the renderer supports it)
 
 
 @dataclass
 class StyledText:
-    """Uno o piu' paragrafi (separati da riga vuota) con stile personalizzato (`::: {attributi}`).
-    style: dizionario risolto da styled.resolve (font, size, bold, align, space_before, ...)."""
+    """One or more paragraphs (separated by an empty line) with a custom style (`::: {attributes}`).
+    style: dictionary resolved by styled.resolve (font, size, bold, align, space_before, ...)."""
     text: str
     style: dict
 
 
 @dataclass
 class PageBreak:
-    """Nuova pagina (riga `---` nei file di frontmatter)."""
+    """New page (`---` line in the frontmatter files)."""
 
 
 @dataclass
 class Figure:
     path: Path
-    caption: str                  # gia' completa e numerata ("Fig. 6.3.1. ...")
-    klass: Optional[str] = None   # classe di figura (`{class=plan}`): misure e spazi da config images.classes.<klass>
-    width: Optional[str] = None   # "12cm", "60%", "3in" ... (% della larghezza disponibile)
+    caption: str                  # already complete and numbered ("Fig. 6.3.1. ...")
+    klass: Optional[str] = None   # figure class (`{class=plan}`): measures and spacing from config images.classes.<klass>
+    width: Optional[str] = None   # "12cm", "60%", "3in" ... (% of the available width)
     height: Optional[str] = None
-    position: Optional[str] = None   # auto | top | bottom | column | left | right (solo Typst a colonne)
-    wrap: int = 1                 # con position left/right: quanti paragrafi seguenti girano intorno
-    group: Optional[str] = None   # 'end': figura di fine sezione (le consecutive diventano una FigureGroup)
-    align: Optional[str] = None   # left | center | right (immagini di frontmatter; default: centro)
+    position: Optional[str] = None   # auto | top | bottom | column | left | right (multi-column Typst only)
+    wrap: int = 1                 # with position left/right: how many following paragraphs wrap around
+    group: Optional[str] = None   # 'end': end-of-section figure (consecutive ones become a FigureGroup)
+    align: Optional[str] = None   # left | center | right (frontmatter images; default: centre)
 
 
 @dataclass
 class FigureGroup:
-    """Figure di fine capitolo/sezione. Con title: sezione dedicata (pagina di titolo)."""
+    """End-of-chapter/section figures. With title: dedicated section (title page)."""
     figures: list
     title: Optional[str] = None
 
 
 @dataclass
 class Table:
-    """Tabella generica (es. da Markdown): intestazione + righe; celle con markup inline.
-    ratios = pesi relativi delle colonne (None = uguali); aligns = 'left'|'center'|'right' per colonna."""
+    """Generic table (e.g. from Markdown): header + rows; cells with inline markup.
+    ratios = relative column weights (None = equal); aligns = 'left'|'center'|'right' per column."""
     header: list
     rows: list
     ratios: Optional[list] = None
     aligns: Optional[list] = None
-    caption: str = ""             # numerata, sopra la tabella
-    klass: Optional[str] = None   # classe di tabella (riga `{.nome}` dopo la tabella): config table.classes.<nome>
+    caption: str = ""             # numbered, above the table
+    klass: Optional[str] = None   # table class (`{.name}` line after the table): config table.classes.<name>
 
 
 @dataclass
 class Quote:
-    """Citazione (blockquote); source = riferimento su riga a parte, dopo il trattino lungo."""
+    """Quotation (blockquote); source = reference on a separate line, after the long dash."""
     text: str
     source: Optional[str] = None
 
 
 @dataclass
 class ListBlock:
-    items: list                   # [(profondita', testo)], profondita' 0 = primo livello
+    items: list                   # [(depth, text)], depth 0 = first level
     ordered: bool = False
 
 
 @dataclass
 class PartTitle:
-    """Pagina isolata con il solo titolo, centrato (contenitore di capitoli)."""
+    """Page on its own with only the title, centred (chapter container)."""
     level: int
     text: str
 
@@ -115,32 +115,32 @@ class Chapter:
     id: str
     title: str
     blocks: list = field(default_factory=list)
-    new_page: bool = True         # il capitolo inizia su pagina nuova
-    running_title: str = ""       # testo dell'intestazione corrente (default: title)
-    authors: list = field(default_factory=list)   # autori del capitolo (riga grigia sotto il titolo h1)
-    bibliography: bool = True     # aggiunge la bibliografia delle opere citate in fondo al capitolo
-    column_flow: int = 1          # >1: dopo il titolo, tutto il capitolo in un unico flusso a colonne
-    front: bool = False           # frontespizio/colophon: senza titolo, intestazione e numero di pagina
+    new_page: bool = True         # the chapter starts on a new page
+    running_title: str = ""       # text of the running head (default: title)
+    authors: list = field(default_factory=list)   # authors of the chapter (grey line under the h1 title)
+    bibliography: bool = True     # adds the bibliography of the cited works at the end of the chapter
+    column_flow: int = 1          # >1: after the title, the whole chapter in a single column flow
+    front: bool = False           # title page/colophon: without title, running head and page number
 
 
 @dataclass
 class Volume:
     meta: dict
     chapters: list
-    front: list = field(default_factory=list)    # frontmatter (Chapter con front=True), prima dell'indice
+    front: list = field(default_factory=list)    # frontmatter (Chapter with front=True), before the table of contents
 
 
 @dataclass
 class Bibliography:
-    """Riferimenti bibliografici citati nel capitolo (gia' formattati dallo stile CSL)."""
+    """Bibliographic references cited in the chapter (already formatted by the CSL style)."""
     title: str
     level: int
-    entries: list                 # [(chiave, testo con markup inline *corsivo*)]
+    entries: list                 # [(key, text with inline markup *italic*)]
 
 
 def map_text(blocks, fn):
-    """Applica fn a ogni testo dei blocchi (paragrafi, citazioni, elenchi, tabelle, didascalie,
-    titoli). fn(str) -> str."""
+    """Applies fn to every text of the blocks (paragraphs, quotations, lists, tables, captions,
+    headings). fn(str) -> str."""
     for b in blocks:
         if isinstance(b, (Heading, Text, StyledText)):
             b.text = fn(b.text)
@@ -161,7 +161,7 @@ _UNITS = {"cm": 1.0, "mm": 0.1, "in": 2.54, "pt": 2.54 / 72, "px": 2.54 / 96}
 
 
 def length_cm(spec, ref_cm):
-    """'12cm', '5in', '300px', '60%' (di ref_cm) -> cm; None se vuoto o non valido."""
+    """'12cm', '5in', '300px', '60%' (of ref_cm) -> cm; None if empty or invalid."""
     if not spec:
         return None
     m = re.fullmatch(r"\s*([0-9]*\.?[0-9]+)\s*(cm|mm|in|pt|px|%)?\s*", str(spec))
@@ -175,23 +175,23 @@ MARK = re.compile(r"^(?:==(.+)==|\[(.+)\]\{\.mark\})$", re.S)
 
 
 def mark_text(part):
-    """Se `part` e' un evidenziato (==t== / [t]{.mark}) -> il testo interno, altrimenti None."""
+    """If `part` is a highlight (==t== / [t]{.mark}) -> the inner text, otherwise None."""
     m = MARK.match(part)
     return (m.group(1) or m.group(2)) if m else None
 
 
 CRITIC = re.compile(r"^(?:\{==(.*?)==\}\{(?:[A-Za-z_]+=\"[^\"\n]*\"\s*)*>>(.*?)<<\}|\{(?:[A-Za-z_]+=\"[^\"\n]*\"\s*)*>>(.*?)<<\})$", re.S)
 
-# stato delle annotazioni (impostato dal CLI: --annotations o config `annotations`)
+# state of annotations (set by the CLI: --annotations or config `annotations`)
 ANNOT = {"enabled": False, "author": "", "initials": "", "color": "FFD54F", "items": [],
-         "suggestions": "accept"}     # senza --annotations i suggerimenti {++ ++} {-- --} {~~ ~> ~~}: "accept" | "reject"
+         "suggestions": "accept"}     # without --annotations the suggestions {++ ++} {-- --} {~~ ~> ~~}: "accept" | "reject"
 
 CRITIC_EDIT = re.compile(r"^(?:\{\+\+(.*?)\+\+\}|\{--(.*?)--\}|\{~~(.*?)~>(.*?)~~\})$", re.S)
 
 
 def critic_edit(part):
-    """Se `part` e' un suggerimento CriticMarkup -> (testo vecchio, testo nuovo), altrimenti None:
-    {++nuovo++} -> ("", nuovo); {--vecchio--} -> (vecchio, ""); {~~vecchio~>nuovo~~} -> (vecchio, nuovo)."""
+    """If `part` is a CriticMarkup suggestion -> (old text, new text), otherwise None:
+    {++new++} -> ("", new); {--old--} -> (old, ""); {~~old~>new~~} -> (old, new)."""
     m = CRITIC_EDIT.match(part)
     if not m:
         return None
@@ -203,12 +203,12 @@ def critic_edit(part):
 
 
 def accepted_edit(old, new):
-    """Testo che resta senza --annotations (annotations.suggestions: accept = nuovo, reject = vecchio)."""
+    """Text that remains without --annotations (annotations.suggestions: accept = new, reject = old)."""
     return old if ANNOT["suggestions"] == "reject" else new
 
 
 def critic_parts(part):
-    """Se `part` e' un'annotazione CriticMarkup -> (testo annotato o "", commento), altrimenti None."""
+    """If `part` is a CriticMarkup annotation -> (annotated text or "", comment), otherwise None."""
     m = CRITIC.match(part)
     if not m:
         return None
@@ -216,13 +216,13 @@ def critic_parts(part):
 
 
 def annotation_tag(n):
-    """Marcatore invisibile (solo ASCII) che il PDF porta per ritrovare dove ancorare l'annotazione."""
+    """Invisible marker (ASCII only) that the PDF carries to find where to anchor the annotation."""
     return f"ZQA{n:04d}QZ"
 
 
 def running_left(chapter, volume, hcfg):
-    """Testo dell'intestazione delle pagine pari (sinistre): header.left_pages = "author" (default:
-    autori del capitolo, altrimenti quelli del volume) oppure "title" (come le pagine destre)."""
+    """Text of the running head of even (left) pages: header.left_pages = "author" (default:
+    the chapter's authors, otherwise the volume's) or "title" (like the right pages)."""
     if hcfg.get("left_pages", "author") != "author":
         return None
     names = list(chapter.authors) or [

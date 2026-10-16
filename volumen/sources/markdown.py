@@ -1,8 +1,8 @@
-"""Sorgente 'markdown': un file .md per capitolo -> blocchi del modello.
+"""'markdown' source: one .md file per chapter -> blocks of the model.
 
-Frontmatter YAML (title, ...); titoli `#`/`##`/`###`, paragrafi, immagini
-`![didascalia](file)` su riga a se'. Non ancora gestiti (segnalati come anomalie):
-note a pie di pagina, citazioni, tabelle, elenchi."""
+YAML frontmatter (title, ...); `#`/`##`/`###` headings, paragraphs, images
+`![caption](file)` on a line of their own. Not yet handled (reported as anomalies):
+footnotes, quotations, tables, lists."""
 import re
 import sys
 from itertools import count
@@ -18,35 +18,35 @@ FRONTMATTER = re.compile(r"\A---\s*\n(.*?)\n---\s*\n", re.S)
 HEADING = re.compile(r"^(#{1,6})\s+(.*?)\s*#*\s*$")
 UNESCAPE = re.compile(r"\\([\\`{}\[\]()#+.!|<>~^$_*-])")
 QUOTE_LINE = re.compile(r"^\s{0,3}>\s?(.*)$")
-QUOTE_SOURCE = re.compile(r"^(?:—|―|--)\s*(.+)$")     # ultima riga della citazione: "— fonte"
-DASH = "-\u2013\u2014\u2212"        # trattino, en dash, em dash, meno: Word/Obsidian li sostituiscono
+QUOTE_SOURCE = re.compile(r"^(?:—|―|--)\s*(.+)$")     # last line of the quotation: "— source"
+DASH = "-\u2013\u2014\u2212"        # hyphen, en dash, em dash, minus: Word/Obsidian substitute them
 TABLE_DELIM = re.compile(rf"^\s*\|?\s*:?[{DASH}]{{2,}}:?\s*(\|\s*:?[{DASH}]{{2,}}:?\s*)*\|?\s*$")
 DELIM_CELL = re.compile(rf"^:?[{DASH}]{{2,}}:?$")
 TABLE_CAPTION = re.compile(r"^(?:Table\s*:|:)\s*(.+)$")
 TABLE_CLASS = re.compile(r"^\{\.([\w-]+)\}$")
 LIST_ITEM = re.compile(r"^(\s*)([-*+]|\d+[.)])\s+(.*)$")
-IMAGE_LINE = re.compile(r"^!\[(.*?)\]\((.+?)\)(?:\{([^}]*)\})?\s*$")   # attributi Pandoc: {#etichetta width=..}
+IMAGE_LINE = re.compile(r"^!\[(.*?)\]\((.+?)\)(?:\{([^}]*)\})?\s*$")   # Pandoc attributes: {#label width=..}
 LINK = re.compile(r"(?<!!)\[([^\]]+)\]\((?:#|https?://)[^)]*\)")
-INTERNAL = re.compile(r"(?<!!)\[([^\]]*)\]\(#([^)\s]+)\)")     # riferimento interno [testo](#etichetta)
-LABEL_ID = re.compile(r"#([^\s}]+)")                               # #etichetta in {..} o []{#..}
-REF_OPEN, REF_CLOSE = "\x01", "\x02"                              # segnaposto riferimento, risolto a fine capitolo
-BARE_LINK = re.compile(r"(?<!!)\[([^\]]*)\]\(([A-Za-z0-9_\-]+)\)")   # [testo](slug): manca .md, il link non e' risolto
-MDLINK = re.compile(r"(?<!!)\[([^\]]*)\]\(<?([^)<>]*?\.md)(?:#[^)>]*)?>?\)")   # [testo](file.md) [testo](file.md#sezione)
-DIV_OPEN = re.compile(r"^:{3,}\s*(\{.*\})\s*$")        # ::: {.stile size=28 align=center}
+INTERNAL = re.compile(r"(?<!!)\[([^\]]*)\]\(#([^)\s]+)\)")     # internal reference [text](#label)
+LABEL_ID = re.compile(r"#([^\s}]+)")                               # #label in {..} or []{#..}
+REF_OPEN, REF_CLOSE = "\x01", "\x02"                              # reference placeholder, resolved at the end of the chapter
+BARE_LINK = re.compile(r"(?<!!)\[([^\]]*)\]\(([A-Za-z0-9_\-]+)\)")   # [text](slug): .md is missing, the link is not resolved
+MDLINK = re.compile(r"(?<!!)\[([^\]]*)\]\(<?([^)<>]*?\.md)(?:#[^)>]*)?>?\)")   # [text](file.md) [text](file.md#section)
+DIV_OPEN = re.compile(r"^:{3,}\s*(\{.*\})\s*$")        # ::: {.style size=28 align=center}
 DIV_CLOSE = re.compile(r"^:{3,}\s*$")
-VAR = re.compile(r"\{\{\s*([\w.-]+)\s*\}\}")                # {{title}}, {{authors}}: valori di volume.md
-ANCHOR = re.compile(r"\[\]\{[^}]*\}")                                # ancore Word/Pandoc: []{#_Ref123 .anchor}
+VAR = re.compile(r"\{\{\s*([\w.-]+)\s*\}\}")                # {{title}}, {{authors}}: values from volume.md
+ANCHOR = re.compile(r"\[\]\{[^}]*\}")                                # Word/Pandoc anchors: []{#_Ref123 .anchor}
 
 
 def split_frontmatter(text):
     m = FRONTMATTER.match(text)
     if not m:
         return {}, text
-    fm = m.group(1).replace("\t", "  ")      # i TAB non sono YAML valido (Obsidian li inserisce negli elenchi)
+    fm = m.group(1).replace("\t", "  ")      # TABs are not valid YAML (Obsidian inserts them in lists)
     try:
         meta = yaml.safe_load(fm) or {}
     except yaml.YAMLError:
-        # frontmatter scritto a mano (es. titolo con ':' non quotato): 'chiave: valore' riga per riga
+        # hand-written frontmatter (e.g. title with an unquoted ':'): 'key: value' line by line
         meta = {}
         for ln in fm.splitlines():
             if ":" in ln and not ln.startswith((" ", "-")):
@@ -59,13 +59,13 @@ ATTR = re.compile(r'([\w-]+)=("[^"]*"|\'[^\']*\'|\S+)')
 
 
 def parse_attrs(text):
-    """{#id width=12cm position=right} -> {'width': '12cm', 'position': 'right'} (id a parte)."""
+    """{#id width=12cm position=right} -> {'width': '12cm', 'position': 'right'} (id separate)."""
     return {k: v.strip("\"'") for k, v in ATTR.findall(text or "")}
 
 
 def join_wrapped_images(lines, max_lines=12):
-    """Pandoc manda a capo le didascalie lunghe: `![testo\ncontinua](file){attr}` su piu' righe.
-    Le riunisce in una sola riga (fino a chiudere la sintassi dell'immagine)."""
+    """Pandoc wraps long captions: `![text\\ncontinues](file){attr}` over several lines.
+    Joins them into one line (up to the end of the image syntax)."""
     out, i = [], 0
     while i < len(lines):
         line = lines[i]
@@ -85,8 +85,8 @@ NOTE_REF = re.compile(r"\[\^([^\]]+)\]")
 
 
 def extract_notes(lines):
-    """Toglie le definizioni `[^id]: testo` (con continuazioni rientrate) e le restituisce a parte.
-    -> (righe senza definizioni, {id: testo})"""
+    """Removes the `[^id]: text` definitions (with indented continuations) and returns them separately.
+    -> (lines without definitions, {id: text})"""
     out, notes, i = [], {}, 0
     while i < len(lines):
         m = NOTE_DEF.match(UNESCAPE.sub(r"\1", lines[i]).strip())
@@ -99,11 +99,11 @@ def extract_notes(lines):
         while i < len(lines):
             ln = lines[i]
             if ln.strip() and not NOTE_DEF.match(ln.strip()) and not ln.lstrip().startswith(("|", "#")):
-                parts.append(ln.strip())          # continuazione (rientrata o "pigra")
+                parts.append(ln.strip())          # continuation (indented or "lazy")
                 i += 1
             elif not ln.strip() and i + 1 < len(lines) and lines[i + 1][:1] in (" ", "\t") \
                     and lines[i + 1].strip():
-                i += 1                            # riga vuota + paragrafo rientrato: stessa nota
+                i += 1                            # empty line + indented paragraph: same note
             else:
                 break
         notes[m.group(1)] = " ".join(p for p in parts if p)
@@ -111,7 +111,7 @@ def extract_notes(lines):
 
 
 def split_row(line, prep=None):
-    """Cella per cella, senza spezzare sui `\\|` (pipe letterali); poi toglie gli escape."""
+    """Cell by cell, without splitting on `\\\\|` (literal pipes); then removes the escapes."""
     cells = re.split(r"(?<!\\)\|", line.strip())
     if cells and not cells[0].strip():
         cells = cells[1:]
@@ -132,7 +132,7 @@ def column_aligns(delim_line):
 
 
 def column_ratios(header, rows):
-    """Pesi delle colonne dal contenuto: piu' testo = colonna piu' larga (con limiti)."""
+    """Column weights from the content: more text = wider column (with limits)."""
     ratios = []
     for i in range(len(header)):
         lens = [len(header[i])] + [len(r[i]) for r in rows if i < len(r)]
@@ -142,8 +142,8 @@ def column_ratios(header, rows):
 
 
 def resolve_refs(blocks, labels, cid, fname, an):
-    """[testo](#etichetta) -> 'Fig. 4.2' / 'Table 4.1' se l'etichetta e' una figura/tabella del
-    capitolo; altrimenti resta il testo del link e viene segnalato."""
+    """[text](#label) -> 'Fig. 4.2' / 'Table 4.1' if the label is a figure/table of the
+    chapter; otherwise the link text stays and it is reported."""
     pat = re.compile(f"{REF_OPEN}([^|{REF_CLOSE}]*)\\|([^{REF_CLOSE}]*){REF_CLOSE}")
 
     def sub(text):
@@ -160,7 +160,7 @@ def resolve_refs(blocks, labels, cid, fname, an):
 
     for b in blocks:
         if isinstance(b, model.Heading):
-            b.text = model.strip_chapter_links(sub(b.text))      # i titoli non hanno markup inline
+            b.text = model.strip_chapter_links(sub(b.text))      # headings have no inline markup
         elif isinstance(b, model.Text):
             b.text = sub(b.text)
         elif isinstance(b, model.Quote):
@@ -176,7 +176,7 @@ def resolve_refs(blocks, labels, cid, fname, an):
 
 
 def find_image(name, dirs):
-    for n in (name, unquote(name).strip("<>")):      # Obsidian codifica gli spazi (%20)
+    for n in (name, unquote(name).strip("<>")):      # Obsidian encodes spaces (%20)
         for d in dirs:
             p = Path(n).expanduser() if Path(n).is_absolute() else d / n
             if p.exists():
@@ -185,7 +185,7 @@ def find_image(name, dirs):
 
 
 def group_end_figures(blocks, ch):
-    """Figure con `group=end` (fine sezione) consecutive -> FigureGroup."""
+    """Consecutive figures with `group=end` (end of section) -> FigureGroup."""
     if ch.get("end_images_placement", "after_item") == "figures_section":
         print("Note: end_images_placement=figures_section is not supported "
               "(end-of-section figures stay where they are).", file=sys.stderr)
@@ -204,21 +204,21 @@ def group_end_figures(blocks, ch):
 
 
 def load_chapter(cfg, ch, base_dir, an, text=None, md_path=None):
-    """text/md_path: testo gia' letto (es. i file di una cartella, riuniti in un unico testo)."""
+    """text/md_path: text already read (e.g. the files of a folder, joined into a single text)."""
     cid = str(ch.get("id", ""))
     if text is None:
         if not ch.get("file"):
             sys.exit(f"Chapter {cid!r}: 'file' is missing (source: markdown)")
         md_path = resolve_path(ch["file"], ch, base_dir, "markdown_dir")
     if text is None and not md_path.exists():
-        # il capitolo resta nel volume con il solo titolo, e il file mancante e' segnalato
+        # the chapter stays in the volume with the title only, and the missing file is reported
         an.add(cid, "Markdown file missing", "file", str(md_path))
         return model.Chapter(cid, ch.get("title", cid),
                              [model.Heading(int(ch.get("base_level", ch.get("chapter_level", 1))),
                                             str(ch.get("title") or cid))],
                              new_page=bool(ch.get("new_page", True)))
     meta, body = split_frontmatter(md_path.read_text(encoding="utf-8") if text is None else text)
-    front = bool(ch.get("front"))            # frontespizio/colophon: niente titolo, `---` = nuova pagina
+    front = bool(ch.get("front"))            # title page/colophon: no title, `---` = new page
     if ch.get("vars") and "{{" in body:
         def one(m):
             v = ch["vars"].get(m.group(1))
@@ -229,7 +229,7 @@ def load_chapter(cfg, ch, base_dir, an, text=None, md_path=None):
         body = VAR.sub(one, body)
     title = str(meta.get("title") or ch.get("title") or cid)
 
-    # default: {sources.images_dir}/{id}/ se definito; altrimenti solo accanto al file .md
+    # default: {sources.images_dir}/{id}/ if defined; otherwise only next to the .md file
     default_images = "{images_dir}/{id}" if ch.get("sources", {}).get("images_dir") else None
     images = ch.get("images", default_images)
     search = ([resolve_path(images, ch, base_dir)] if images else []) + [md_path.parent]
@@ -240,7 +240,7 @@ def load_chapter(cfg, ch, base_dir, an, text=None, md_path=None):
     fig_counter = count(1)
     blocks = [] if front else [model.Heading(lvl, title)]
 
-    paras, cur = [], []   # paragrafi in accumulo tra un blocco e l'altro
+    paras, cur = [], []   # paragraphs being accumulated between one block and the next
 
     def flush_par():
         if cur:
@@ -253,10 +253,10 @@ def load_chapter(cfg, ch, base_dir, an, text=None, md_path=None):
             blocks.append(model.Text("\n\n".join(paras)))
             paras.clear()
 
-    table_lines = []           # righe grezze di una tabella pipe in corso
+    table_lines = []           # raw lines of a pipe table in progress
     table_counter = count(1)
-    labels = {}                # etichetta -> "Fig. 4.2" / "Table 4.1" (per i riferimenti interni)
-    quote, items = [], []      # blockquote in corso; voci di elenco in corso (depth, testo)
+    labels = {}                # label -> "Fig. 4.2" / "Table 4.1" (for internal references)
+    quote, items = [], []      # blockquote in progress; list items in progress (depth, text)
     ordered = False
 
     def flush_quote():
@@ -274,19 +274,19 @@ def load_chapter(cfg, ch, base_dir, an, text=None, md_path=None):
         blocks.append(model.Quote(text, source))
 
     def explode_collapsed(line):
-        """Tabella incollata su UNA riga (`| a | b | | :-- | :-- | | 1 | 2 |`): ricostruisce le righe.
-        Fra due righe c'e' esattamente una cella vuota (`| |`); la riga di intestazione finisce dove
-        inizia la riga di separatori."""
+        """Table pasted on ONE line (`| a | b | | :-- | :-- | | 1 | 2 |`): rebuilds the rows.
+        Between two rows there is exactly one empty cell (`| |`); the header row ends where
+        the separator row begins."""
         cells = [c.strip() for c in re.split(r"(?<!\\)\|", line.strip())][1:-1]
         first = next((i for i, c in enumerate(cells) if DELIM_CELL.match(c)), None)
         if not first or first < 2 or cells[first - 1] != "":
             return None
-        n = first - 1                                   # colonne = celle prima della cella vuota
+        n = first - 1                                   # columns = cells before the empty cell
         rows = [cells[:n]]
         i = first
         while i < len(cells):
             rows.append(cells[i:i + n])
-            i += n + 1                                  # +1: la cella vuota di separazione
+            i += n + 1                                  # +1: the empty separator cell
         if any(len(r) != n for r in rows):
             return None
         return ["| " + " | ".join(r) + " |" for r in rows]
@@ -303,7 +303,7 @@ def load_chapter(cfg, ch, base_dir, an, text=None, md_path=None):
             rows = []
             for ln in lines[2:]:
                 r = split_row(ln, prep)
-                r = (r + [""] * len(header))[:len(header)]      # righe corte/lunghe: si adattano
+                r = (r + [""] * len(header))[:len(header)]      # short/long rows: they adapt
                 rows.append(r)
             aligns = (column_aligns(lines[1]) + ["left"] * len(header))[:len(header)]
             blocks.append(model.Table(header, rows, column_ratios(header, rows), aligns))
@@ -322,10 +322,10 @@ def load_chapter(cfg, ch, base_dir, an, text=None, md_path=None):
     chapter_ids = ch.get("chapter_ids", {})
 
     def chapter_links(text):
-        """[testo](nome-file.md) -> link a un altro capitolo, risolto con il suo id ("6.2"):
-        "[cap. {nr}](f.md)" -> "cap. 6.2"; "[cap.](f.md)" -> "cap. 6.2"; "[](f.md)" o testo uguale
-        al nome del file (default di Obsidian) -> "6.2". La parte #sezione e' ignorata.
-        File non presente in volume.md: segnalato, resta il testo."""
+        """[text](file-name.md) -> link to another chapter, resolved with its id ("6.2"):
+        "[ch. {nr}](f.md)" -> "ch. 6.2"; "[ch.](f.md)" -> "ch. 6.2"; "[](f.md)" or text equal
+        to the file name (Obsidian's default) -> "6.2". The #section part is ignored.
+        File not in volume.md: reported, the text stays."""
         def one(m):
             shown, target = m.group(1).strip(), unquote(m.group(2)).strip()
             stem = Path(target).stem
@@ -343,7 +343,7 @@ def load_chapter(cfg, ch, base_dir, an, text=None, md_path=None):
         return MDLINK.sub(one, text) if ".md" in text else text
 
     def prep(text):
-        """Testo -> testo pronto: toglie gli escape, [^n] -> nota inline, riferimenti interni, link."""
+        """Text -> ready text: removes escapes, [^n] -> inline note, internal references, links."""
         text = chapter_links(UNESCAPE.sub(r"\1", text))
 
         def note(m):
@@ -364,8 +364,8 @@ def load_chapter(cfg, ch, base_dir, an, text=None, md_path=None):
         text = LINK.sub(r"\1", text)
         return text.replace(model.NOTE_OPEN, "").replace(model.NOTE_CLOSE, "")
 
-    div = None                 # blocco `::: {attributi}` in corso: (stile, [righe])
-    div_align = None           # allineamento del blocco in cui sta un'immagine
+    div = None                 # `::: {attributes}` block in progress: (style, [lines])
+    div_align = None           # alignment of the block an image is in
 
     def close_div():
         classes_style, lines = div
@@ -380,15 +380,15 @@ def load_chapter(cfg, ch, base_dir, an, text=None, md_path=None):
             blocks.append(model.StyledText("\n\n".join(paras), classes_style))
 
     for raw in body_lines:
-        # blocchi con stile personalizzato
+        # blocks with a custom style
         if div is not None:
             if DIV_CLOSE.match(raw.strip()):
                 close_div()
                 div, div_align = None, None
                 continue
             if IMAGE_LINE.match(prep(raw.rstrip()).strip()):
-                # immagine dentro il blocco: chiude il testo prima, poi la tratta come immagine normale; il testo
-                # dopo continua con lo stesso stile (senza ripetere margin-top) e l'immagine ne eredita l'allineamento
+                # image inside the block: closes the text first, then treats it as a normal image; the text
+                # after continues with the same style (without repeating margin-top) and the image inherits its alignment
                 close_div()
                 div_align = div[0].get("align")
                 div = ({**div[0], "space_before": 0}, [])
@@ -412,7 +412,7 @@ def load_chapter(cfg, ch, base_dir, an, text=None, md_path=None):
             flush_list()
             blocks.append(model.PageBreak())
             continue
-        # Obsidian/Zotero esportano spesso escape Markdown (\[ \] \. ...): il testo va letto senza
+        # Obsidian/Zotero often export Markdown escapes (\[ \] \. ...): the text must be read without
         line = prep(raw.rstrip())
         qm = QUOTE_LINE.match(line)
         lm = LIST_ITEM.match(line)
@@ -425,7 +425,7 @@ def load_chapter(cfg, ch, base_dir, an, text=None, md_path=None):
         flush_table()
         tk = TABLE_CLASS.match(line.strip())
         if tk and blocks and isinstance(blocks[-1], model.Table) and not blocks[-1].klass:
-            blocks[-1].klass = tk.group(1)      # `{.nome}` dopo la tabella: stile da config table.classes.<nome>
+            blocks[-1].klass = tk.group(1)      # `{.name}` after the table: style from config table.classes.<name>
             if tk.group(1) not in cfg.get("table", {}).get("classes", {}):
                 an.add(cid, "table class not defined in the style of volume.md (table.classes)", md_path.name, tk.group(1))
             continue
@@ -440,7 +440,7 @@ def load_chapter(cfg, ch, base_dir, an, text=None, md_path=None):
             continue
         if not line.strip():
             flush_par()
-            flush_quote()          # una riga vuota chiude la citazione (la voce d'elenco resta aperta)
+            flush_quote()          # an empty line closes the quotation (the list item stays open)
             continue
         if qm:
             flush_text()
@@ -457,7 +457,7 @@ def load_chapter(cfg, ch, base_dir, an, text=None, md_path=None):
             depth = len(lm.group(1).replace("\t", "    ")) // 2
             items.append((depth, lm.group(3).strip()))
             continue
-        if items and line[:1] in " \t":      # continuazione di una voce d'elenco
+        if items and line[:1] in " \t":      # continuation of a list item
             d, t = items[-1]
             items[-1] = (d, f"{t} {line.strip()}")
             continue
@@ -478,10 +478,10 @@ def load_chapter(cfg, ch, base_dir, an, text=None, md_path=None):
             if p is None:
                 an.add(cid, "missing image", md_path.name, name)
                 continue
-            if front:                      # immagine di frontespizio: senza numero ne' didascalia
+            if front:                      # title-page image: without number nor caption
                 a = parse_attrs(img.group(3))
                 w_attr, h_attr = a.get("width"), a.get("height")
-                if not (w_attr or h_attr):         # senza misure: dimensione naturale (96 dpi), non ingrandita
+                if not (w_attr or h_attr):         # without measures: natural size (96 dpi), not enlarged
                     try:
                         from PIL import Image
                         with Image.open(p) as im:
@@ -503,7 +503,7 @@ def load_chapter(cfg, ch, base_dir, an, text=None, md_path=None):
                 an.add(cid, "invalid position attribute (auto|top|bottom|column|left|right)",
                        md_path.name, f"{name}: {pos}")
                 pos = None
-            klass = attrs.get("class") or attrs.get("role")      # `role=` e' il nome storico di `class=`
+            klass = attrs.get("class") or attrs.get("role")      # `role=` is the historical name of `class=`
             if klass and klass not in icfg_classes:
                 an.add(cid, "figure class not defined in the style of volume.md (images.classes)", md_path.name,
                        f"{name}: {klass}")

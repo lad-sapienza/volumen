@@ -1,26 +1,26 @@
-"""Nota del volume (`volume.md`): composizione = frontmatter piatto + elenco annidato di link ai capitoli.
+"""Volume note (`volume.md`): composition = flat frontmatter + nested list of links to the chapters.
 
     ---
-    title: Titolo del volume
-    authors: ["Nome Cognome | Affiliazione"]
+    title: Volume title
+    authors: ["First Last | Affiliation"]
     toc: true
     toc_depth: 2
     bibliography: ../bib/book.bib
     ---
-    - [preface](preface.md) {id=preface}                 # id esplicito non numerico: fuori dalla numerazione
+    - [preface](preface.md) {id=preface}                 # explicit non-numeric id: outside the numbering
     - [project](project.md)
-    - Archaeology of the site {divider}        # voce senza file con figli = contenitore (pagina divisoria)
+    - Archaeology of the site {divider}        # entry without a file with children = container (divider page)
       - [introduction](introduction.md)
-      - Complexes catalogue {source=complexes series_order=F1,F2}   # source=<cartella di file Markdown>
+      - Complexes catalogue {source=complexes series_order=F1,F2}   # source=<folder of Markdown files>
 
-    ## Stile
+    ## Style
     ```yaml
     page: {size: A4}
     styles: {normal: {font: Minion Pro, size: 11}}
     ```
 
-Il titolo di un capitolo viene SOLO dal `title` del suo file. La grafica sta nei blocchi ```yaml della stessa nota (sezione «Stile»).
-Il risultato e' lo stesso dizionario che prima si leggeva da volume.md."""
+A chapter's title comes ONLY from the `title` of its file. The graphics are in the ```yaml blocks of the same note ("Style" section).
+The result is the same dictionary that used to be read from volume.md."""
 import re
 import sys
 from pathlib import Path
@@ -34,17 +34,17 @@ from .sources import markdown
 WIKILINK = re.compile(r"^\[\[([^\]]+)\]\]$")
 MDLINK = re.compile(r"^\[[^\]]*\]\(<?([^)<>]+?)>?\)$")
 ITEM = re.compile(r"^(\s*)[-*+]\s+(.*\S)\s*$")
-ATTRS = re.compile(r"^(.*?)\s*\{([^{}]*(?:\{[^{}]*\}[^{}]*)*)\}\s*$")      # testo {attributi} (graffe annidate ammesse: {id})
+ATTRS = re.compile(r"^(.*?)\s*\{([^{}]*(?:\{[^{}]*\}[^{}]*)*)\}\s*$")      # text {attributes} (nested braces allowed: {id})
 ATTR = re.compile(r'([\w-]+)(?:=("[^"]*"|\'[^\']*\'|\S+))?')
 LIST_KEYS = {"series_order", "exclude_prefixes", "first", "exclude", "include", "authors"}
 
-# chiavi piatte del frontmatter -> posizione nel dizionario annidato (prefisso_chiave -> prefisso.chiave)
+# flat frontmatter keys -> position in the nested dictionary (prefix_key -> prefix.key)
 GROUPS = ("toc", "list_of_figures", "output")
 SOURCE_KEYS = ("images_dir", "bibliography", "csl", "markdown_dir")
 
 
 def _value(key, raw):
-    """Valore di un attributo `chiave=valore` (senza valore = vero)."""
+    """Value of a `key=value` attribute (without a value = true)."""
     if not raw:
         return True
     quoted = raw[0] in "\"'"
@@ -66,8 +66,8 @@ def parse_attrs(text):
 
 
 class _Resolver:
-    """Risolve `[testo](percorso.md)` / `[[nome]]` in un file: prima rispetto alla cartella della nota, poi per
-    nome in tutto il vault (la cartella con `.obsidian` piu' vicina, altrimenti la cartella della nota)."""
+    """Resolves `[text](path.md)` / `[[name]]` to a file: first relative to the note's folder, then by
+    name in the whole vault (the nearest folder with `.obsidian`, otherwise the note's folder)."""
 
     def __init__(self, base_dir):
         self.base = base_dir
@@ -75,7 +75,7 @@ class _Resolver:
         self._index = None
 
     def target(self, raw):
-        """Testo di un link -> percorso (senza anchor, alias ed estensione) oppure None."""
+        """Text of a link -> path (without anchor, alias and extension) or None."""
         raw = raw.strip()
         m = WIKILINK.match(raw)
         if m:
@@ -103,7 +103,7 @@ class _Resolver:
 
 
 def _frontmatter(meta):
-    """Frontmatter piatto -> dizionario di volume (toc_depth -> toc.depth, authors 'Nome | Affiliazione', ...)."""
+    """Flat frontmatter -> volume dictionary (toc_depth -> toc.depth, authors 'Name | Affiliation', ...)."""
     vol = {}
     for k, v in meta.items():
         group = next((g for g in GROUPS if k == g or k.startswith(g + "_")), None)
@@ -137,7 +137,7 @@ def _flat(values):
 
 
 def load_volume_note(path):
-    """-> (dizionario di volume, [(id, tipo, campo, dettaglio)] anomalie della composizione)."""
+    """-> (volume dictionary, [(id, type, field, detail)] composition anomalies)."""
     path = Path(path)
     meta, body = markdown.split_frontmatter(path.read_text(encoding="utf-8"))
     base = path.resolve().parent
@@ -149,7 +149,7 @@ def load_volume_note(path):
     def link_file(raw, where):
         name = res.target(str(raw))
         if name is None:
-            name = re.sub(r"\.md$", "", str(raw).strip())      # nome semplice (es. title-page.md)
+            name = re.sub(r"\.md$", "", str(raw).strip())      # simple name (e.g. title-page.md)
         f, warn = res.find(name)
         if f is None:
             warnings.append((where, "file not found", "volume.md", str(raw)))
@@ -162,7 +162,7 @@ def load_volume_note(path):
         files = [link_file(x, "frontmatter") for x in _flat(vol["frontmatter"])]
         vol["frontmatter"] = [f for f in files if f]
 
-    # --- il corpo: elenco dei capitoli (voci fuori dai blocchi di codice) + blocchi ```yaml = stile/configurazione
+    # --- the body: list of chapters (entries outside the code blocks) + ```yaml blocks = style/configuration
     items, config = [], {}
     fence, info, block, start = None, "", [], 0
     for n, ln in enumerate(body.replace("\t", "    ").splitlines(), 1):
@@ -191,7 +191,7 @@ def load_volume_note(path):
     vol["_config"] = config
 
     def build(pos, indent, parent_id):
-        """Voci allo stesso livello a partire da `pos`. -> (capitoli, nuova posizione)."""
+        """Entries at the same level starting from `pos`. -> (chapters, new position)."""
         out, counter = [], 0
         while pos < len(items) and items[pos][0] >= indent:
             depth, text = items[pos]
@@ -203,7 +203,7 @@ def load_volume_note(path):
                 cid = str(explicit)
                 tail = cid.rsplit(".", 1)[-1]
                 if tail.isdigit():
-                    counter = int(tail)              # id numerico: la numerazione riparte da li'
+                    counter = int(tail)              # numeric id: the numbering restarts from there
             else:
                 counter += 1
                 cid = f"{parent_id}.{counter}" if parent_id else str(counter)
@@ -212,7 +212,7 @@ def load_volume_note(path):
                 children, pos = build(pos, items[pos][0], cid)
             name = res.target(label)
             ch = {"id": cid}
-            if name:                                 # voce con link: capitolo Markdown (titolo = title del file)
+            if name:                                 # entry with a link: Markdown chapter (title = the file's title)
                 if children:
                     warnings.append((cid, "an entry with a file cannot have children", "volume.md", label))
                 f, warn = res.find(name)
@@ -224,11 +224,11 @@ def load_volume_note(path):
                 if "|" in label:
                     warnings.append((cid, "link alias ignored (the title comes from the file)", "volume.md", label))
                 ch.update(source="markdown", file=str(f))
-            elif "source" in attrs:                  # source=<cartella>: cartella di file Markdown
+            elif "source" in attrs:                  # source=<folder>: folder of Markdown files
                 if children:
                     warnings.append((cid, "a folder (source=) cannot have children", "volume.md", label))
                 ch.update(title=label, dir=attrs.pop("source"), source="folder")
-            elif children:                           # contenitore
+            elif children:                           # container
                 ch.update(title=label, chapters=children)
             else:
                 warnings.append((cid, "entry with neither file nor source", "volume.md", label))

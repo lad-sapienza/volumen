@@ -1,4 +1,4 @@
-"""Renderer Typst: consuma i blocchi del modello e compila con `typst compile`."""
+"""Typst renderer: consumes the blocks of the model and compiles with `typst compile`."""
 import re
 import subprocess
 import sys
@@ -12,17 +12,17 @@ from ..config import heading_style, style_cfg
 
 HERE = Path(__file__).resolve().parent
 
-# left/right/center: mappatura diretta; justify e' un booleano a parte in Typst
-# (par.justify), qui l'allineamento "di base" (es. dell'ultima riga) e' left,
-# come in Word.
+# left/right/center: direct mapping; justify is a separate boolean in Typst
+# (par.justify), here the "base" alignment (e.g. of the last line) is left,
+# as in Word.
 ALIGN_TYPST = {"left": "left", "right": "right", "center": "center", "justify": "left"}
 
 
 def leading_pt(sc):
-    """line_height e' il passo fra le righe in pt (in Word: interlinea
-    "esatta"). Il riquadro di riga e' impostato a 1em (top-edge 0.75em,
-    bottom-edge 0.25em sotto la linea di base), quindi il leading e' la
-    differenza: risultato indipendente dai metrici del font."""
+    """line_height is the pitch between lines in pt (in Word: "exact"
+    line spacing). The line box is set to 1em (top-edge 0.75em,
+    bottom-edge 0.25em below the baseline), so the leading is the
+    difference: the result does not depend on the font metrics."""
     return round(sc["line_height"] - sc["size"], 2)
 
 
@@ -35,27 +35,27 @@ def typst_color(hex_color):
 
 
 # --------------------------------------------------------------------------
-# Escape e markdown -> Typst
+# Escaping and markdown -> Typst
 # --------------------------------------------------------------------------
 def esc(text):
-    """Escapa i caratteri speciali di Typst in un frammento di testo semplice."""
+    """Escapes the special characters of Typst in a fragment of plain text."""
     text = re.sub(r"[\\#\[\]<>@$`_*~]", lambda m: "\\" + m.group(0), text)
-    text = text.replace("//", "\\/\\/")   # '//' aprirebbe un commento (es. negli URL)
-    # a inizio testo "1. ", "- ", "+ ", "= " sono elenco/titolo (es. "1. Preface": enum dentro un par)
+    text = text.replace("//", "\\/\\/")   # '//' would open a comment (e.g. in URLs)
+    # at the start of the text "1. ", "- ", "+ ", "= " are a list/heading (e.g. "1. Preface": an enum inside a par)
     return re.sub(r"^(?:(\d+)(?=\.)|([=+/-]))", lambda m: m.group(1) + "\\" if m.group(1) else "\\" + m.group(2), text)
 
 
 def esc_str(text):
-    """Escapa una stringa da mettere tra virgolette Typst, es. image("...")."""
+    """Escapes a string to put between Typst quotes, e.g. image("...")."""
     return text.replace("\\", "\\\\").replace('"', '\\"')
 
 
-HIGHLIGHT = "FFEB3B"      # colore evidenziato (typography.highlight_color)
-LINKS = {}                # stile dei link (config `links`: color, underline, bold); vuoto = come il testo
+HIGHLIGHT = "FFEB3B"      # highlight colour (typography.highlight_color)
+LINKS = {}                # link style (config `links`: color, underline, bold); empty = like the text
 
 
 def link_style_wrap(markup):
-    """Stile dei link da config `links` (color, underline, bold); senza chiavi, nessun cambiamento."""
+    """Link style from the `links` config (color, underline, bold); without keys, no change."""
     if LINKS.get("bold"):
         markup = f"#strong[{markup}]"
     if LINKS.get("underline"):
@@ -66,8 +66,8 @@ def link_style_wrap(markup):
 
 
 def md_inline_to_typst(line):
-    """**bold** -> *bold*, *it*/_it_ -> _it_ (sintassi Typst), resto escapato; le note inline
-    diventano #footnote[...]."""
+    """**bold** -> *bold*, *it*/_it_ -> _it_ (Typst syntax), the rest escaped; inline notes
+    become #footnote[...]."""
     if model.NOTE_OPEN in line:
         pieces, pos = [], 0
         for m in model.NOTE.finditer(line):
@@ -77,8 +77,8 @@ def md_inline_to_typst(line):
         pieces.append(md_inline_to_typst(line[pos:]))
         return "".join(pieces)
     if model.LINK_OPEN in line:
-        # link a un altro capitolo: cliccabile, stessa resa del testo (se il capitolo non ha
-        # l'ancora, resta testo semplice: chlink in preambolo)
+        # link to another chapter: clickable, same look as the text (if the chapter has no
+        # anchor, it stays plain text: chlink in the preamble)
         pieces, pos = [], 0
         for m in model.CHLINK.finditer(line):
             pieces.append(md_inline_to_typst(line[pos:m.start()]))
@@ -102,7 +102,7 @@ def md_inline_to_typst(line):
             out.append(inner)
         elif model.critic_edit(part) is not None:
             old, new = model.critic_edit(part)
-            if model.ANNOT["enabled"]:       # revisione: vecchio barrato in rosso, nuovo sottolineato in verde
+            if model.ANNOT["enabled"]:       # revision: old text struck through in red, new text underlined in green
                 if old:
                     out.append(f'#strike(stroke: rgb("#C62828"))[#text(fill: rgb("#C62828"))[{md_inline_to_typst(old)}]]')
                 if new:
@@ -125,12 +125,12 @@ def md_inline_to_typst(line):
         else:
             out.append(esc(part))
     res = "".join(out)
-    # a inizio riga Typst legge =, -, +, / e "1." come titolo/elenco
+    # at the start of a line Typst reads =, -, +, / and "1." as a heading/list
     return re.sub(r"^([=+/-]|\d+(?=\.))", lambda m: "\\" + m.group(0), res)
 
 
 def paragraphs_of(text):
-    """-> lista di paragrafi, ciascuno lista di righe (a-capo singoli = line break)."""
+    """-> list of paragraphs, each a list of lines (single line breaks = line break)."""
     paras = []
     for block in re.split(r"\n\s*\n", (text or "").strip()):
         lines = [ln.rstrip() for ln in block.split("\n") if ln.strip()]
@@ -140,7 +140,7 @@ def paragraphs_of(text):
 
 
 def render_paragraphs(paras):
-    """Paragrafi -> markup Typst (una riga vuota separa i paragrafi, \\ per l'a-capo)."""
+    """Paragraphs -> Typst markup (an empty line separates paragraphs, \\ for the line break)."""
     out = []
     for lines in paras:
         out.append(" \\\n".join(md_inline_to_typst(ln) for ln in lines))
@@ -148,29 +148,29 @@ def render_paragraphs(paras):
 
 
 # --------------------------------------------------------------------------
-# Testo a due colonne
+# Two-column text
 # --------------------------------------------------------------------------
-# Typst NON bilancia #columns: riempie la prima colonna fino al fondo della regione, poi la seconda
-# (un testo breve finisce tutto nella colonna di sinistra, uno a cavallo di pagina lascia 1-2 righe in
-# fondo e il resto a sinistra). Qui le colonne si bilanciano misurando il testo: un testo breve diventa
-# un blocco di altezza ~meta', non spezzabile (se non entra nello spazio rimasto va alla pagina dopo,
-# bilanciato); un testo piu' lungo di `balance_max` della pagina scorre come #columns normale.
-# link a un altro capitolo: ancora "ch_<id>" sul titolo; senza ancora il testo resta com'e'
+# Typst does NOT balance #columns: it fills the first column down to the bottom of the region, then the second
+# (a short text ends up entirely in the left column, one straddling a page leaves 1-2 lines at the
+# bottom and the rest on the left). Here the columns are balanced by measuring the text: a short text becomes
+# a block of about half the height, unbreakable (if it does not fit in the remaining space it goes to the next page,
+# balanced); a text longer than `balance_max` of the page flows like a normal #columns.
+# link to another chapter: anchor "ch_<id>" on the heading; without an anchor the text stays as it is
 CHLINK_DEF = ('#let chlink(anchor, body) = context {\n'
               '  if query(label(anchor)).len() > 0 { link(label(anchor), body) } else { body }\n}\n')
 
 BALANCED_COLS = (
-    # context (non layout): il risultato di layout() non si spezza fra le pagine; text-w e page-bottom
-    # sono definiti nel preambolo. La posizione e' quella di un'ancora (#metadata) messa PRIMA del
-    # blocco: con here() la decisione dipenderebbe dalla propria posizione (punto fisso: il blocco
-    # spostato a pagina nuova ci resterebbe).
+    # context (not layout): the result of layout() does not split across pages; text-w and page-bottom
+    # are defined in the preamble. The position is that of an anchor (#metadata) placed BEFORE the
+    # block: with here() the decision would depend on the block's own position (fixed point: a block
+    # moved to a new page would stay there).
     '#let balanced-cols(anchor, gutter, max-frac, min-frac, body) = context {\n'
     '  let colw = (text-w - gutter) / 2\n'
     '  let h = measure(width: colw, body).height\n'
     '  let hb = h / 2 + 1.5 * text.size\n'
     '  let found = query(label(anchor))\n'
     '  let rem = if found.len() == 0 { none } else { page.height - page-bottom - found.first().location().position().y }\n'
-    # primo passaggio (ancora senza posizione): flusso normale, spezzabile, mai un blocco che salta pagina
+    # first pass (anchor without a position): normal flow, breakable, never a block that jumps to the next page
     '  if rem == none or hb > max-frac * page.height or (hb > rem and rem >= min-frac * page.height) {\n'
     '    columns(2, gutter: gutter, body)\n'
     '  } else { block(breakable: false, height: hb, columns(2, gutter: gutter, body)) }\n'
@@ -188,7 +188,7 @@ def balanced_markup(gutter_cm, balance_max, min_flow, body):
 
 
 def render_two_col_text(text, gutter_cm, indent_pt=0, balance_max=0.5, min_flow=0.2):
-    """Testo su due colonne, bilanciate (vedi BALANCED_COLS); balance_max = 0 le disattiva."""
+    """Two-column text, balanced (see BALANCED_COLS); balance_max = 0 turns it off."""
     paras = paragraphs_of(text)
     if not paras:
         return ""
@@ -201,11 +201,11 @@ def render_two_col_text(text, gutter_cm, indent_pt=0, balance_max=0.5, min_flow=
 
 
 # --------------------------------------------------------------------------
-# Immagini e tabella
+# Images and table
 # --------------------------------------------------------------------------
 def text_style_markup(sc, gap=None):
-    """set text/par per un blocco con stile proprio. gap = spazio fra paragrafi
-    interni (default: space_before + space_after dello stile, come in Word)."""
+    """set text/par for a block with its own style. gap = space between inner
+    paragraphs (default: the style's space_before + space_after, as in Word)."""
     weight = "bold" if sc["bold"] else "regular"
     style = "italic" if sc["italic"] else "normal"
     if gap is None:
@@ -219,11 +219,11 @@ def text_style_markup(sc, gap=None):
 
 
 def render_quote(cfg, q):
-    """space_before/space_after dello stile = spazio ESTERNO al blocco; fra i paragrafi
-    interni paragraph_gap; la fonte e' una riga a capo (allineata a destra) nello stesso
-    paragrafo dell'ultimo capoverso, quindi senza spazio sopra.
-    Ultima riga e fonte non si separano mai: citazioni brevi (< keep_together_chars) sono un
-    blocco unico non spezzabile; per le lunghe, penalita' altissime su vedove/orfane."""
+    """the style's space_before/space_after = space OUTSIDE the block; between inner paragraphs
+    paragraph_gap; the source is a line break (right-aligned) in the same
+    paragraph as the last paragraph, hence with no space above.
+    The last line and the source never separate: short quotations (< keep_together_chars) are a
+    single unbreakable block; for long ones, very high penalties on widows/orphans."""
     sc = style_cfg(cfg, "quote", fallback="normal")
     qcfg = cfg.get("styles", {}).get("quote", {})
     gap = qcfg.get("paragraph_gap", 4)
@@ -238,7 +238,7 @@ def render_quote(cfg, q):
 
 
 def render_styled(cfg, st):
-    """Paragrafi con stile personalizzato (`::: {attributi}`): font, corpo, peso, allineamento, spazi."""
+    """Paragraphs with a custom style (`::: {attributes}`): font, size, weight, alignment, spacing."""
     sc = st.style
     body = "\n\n".join(md_inline_to_typst(p) for p in st.text.split("\n\n"))
     if sc.get("case") == "upper":
@@ -251,7 +251,7 @@ def render_styled(cfg, st):
     just = sc["align"] == "justify"
     ind = f'first-line-indent: {sc["first_line_indent"]}pt, ' if sc["first_line_indent"] else ""
     track = f'tracking: {sc["tracking"]}pt, ' if sc.get("tracking") else ""
-    # width: blocco piu' stretto della pagina, collocato secondo `align` (a sinistra se giustificato)
+    # width: block narrower than the page, placed according to `align` (left if justified)
     wspec = sc.get("width")
     if wspec:
         wcm = None if wspec.endswith("%") else model.length_cm(wspec, 0)
@@ -284,7 +284,7 @@ def render_list(cfg, lb):
 
 
 def render_bibliography(cfg, bib):
-    """Voci con rientro sporgente (styles.bibliography: indent_left e first_line_indent negativo)."""
+    """Entries with a hanging indent (styles.bibliography: indent_left and negative first_line_indent)."""
     sc = style_cfg(cfg, "bibliography", fallback="normal")
     hang = -sc["first_line_indent"] or 14
     entries = "\n\n".join(md_inline_to_typst(t) for _, t in bib.entries)
@@ -293,7 +293,7 @@ def render_bibliography(cfg, bib):
 
 
 def render_flow_text(text, indent_pt=0):
-    """Testo a colonna singola (flusso normale della pagina)."""
+    """Single-column text (normal page flow)."""
     markup = render_paragraphs(paragraphs_of(text))
     if not indent_pt:
         return markup
@@ -315,8 +315,8 @@ TYPST_IMAGE_EXT = {".png", ".jpg", ".jpeg", ".gif", ".webp", ".svg", ".pdf"}
 
 
 def typst_readable(path):
-    """Typst non legge TIFF/BMP: li converte (una volta, in cache) in PNG, con lo stesso
-    profilo di colore convertito in RGB; gli altri formati passano invariati."""
+    """Typst does not read TIFF/BMP: they are converted (once, cached) to PNG, with the same
+    colour profile converted to RGB; other formats pass through unchanged."""
     path = Path(path)
     if path.suffix.lower() in TYPST_IMAGE_EXT:
         return path
@@ -333,13 +333,13 @@ def typst_readable(path):
 
 def render_image(cfg, path, caption, max_w_cm, max_h_cm, space_before_pt=None, space_after_pt=None,
                  width_cm=None, height_cm=None, align="center"):
-    """Immagine + didascalia come blocchi separati (niente #figure: la numerazione
-    'Fig. <prefisso>.<n>.' e' gia' calcolata da questo script, non va duplicata
-    dal contatore automatico 'Figure N:' di Typst). Immagine e didascalia sono
-    dentro un unico block(breakable: false): se non entrano nello spazio rimasto
-    in pagina, passano intere alla pagina dopo, invece di spezzarsi fra le due."""
+    """Image + caption as separate blocks (no #figure: the numbering
+    'Fig. <prefix>.<n>.' is already computed by this script and must not be duplicated
+    by Typst's automatic 'Figure N:' counter). Image and caption are
+    inside a single block(breakable: false): if they do not fit in the space left
+    on the page, they move whole to the next page instead of splitting between the two."""
     path = typst_readable(path)
-    if width_cm or height_cm:        # dimensioni esplicite (attributi width/height): scavalcano i tetti
+    if width_cm or height_cm:        # explicit dimensions (width/height attributes): they override the ceilings
         w = compute_width_cm(path, width_cm or 1000, height_cm or 1000)
     else:
         w = compute_width_cm(path, max_w_cm, max_h_cm)
@@ -353,14 +353,14 @@ def render_image(cfg, path, caption, max_w_cm, max_h_cm, space_before_pt=None, s
             content = f"_{content}_"
         group.append(f'#align({cap_align})[#text(font: "{cap_sc["font"]}", size: {cap_sc["size"]}pt, '
                      f'weight: "{weight}", fill: {typst_color(cap_sc["color"])})[{content}]]')
-    if caption:       # ancora nascosta per l'elenco delle figure (vedi list_of_figures_markup)
+    if caption:       # hidden anchor for the list of figures (see list_of_figures_markup)
         group.insert(0, f'#place(hide(figure([], kind: "volumen-fig", supplement: none, outlined: true, '
                         f'caption: [{esc(caption)}])))')
     parts = []
     if space_before_pt is not None:
         parts.append(f"#v({space_before_pt}pt)")
-    # larghezza del blocco = quella dell'immagine (con un minimo): la didascalia va a capo sotto l'immagine,
-    # senza allargare la colonna della figura (wrap) ne' estendersi oltre l'immagine
+    # block width = that of the image (with a minimum): the caption wraps below the image,
+    # without widening the figure's column (wrap) nor extending beyond the image
     cap_w = max(w, cfg.get("images", {}).get("min_caption_cm", 5.0))
     parts.append(f"#align({align}, block(breakable: false, width: {cap_w:.2f}cm)[\n" + "\n".join(group) + "\n])")
     if space_after_pt is not None:
@@ -369,9 +369,9 @@ def render_image(cfg, path, caption, max_w_cm, max_h_cm, space_before_pt=None, s
 
 
 def render_table(cfg, header, rows, ratios=None, aligns=None, empty_cell=None, caption="", markup=True):
-    """Larghezze colonna da ratios (pesi relativi, non cm), spessore riga da table.rule_pt/
-    header_rule_pt, font/corpo/grassetto/colore di intestazione e corpo da styles.table_header/
-    table_body. markup=True: le celle possono contenere **grassetto**/*corsivo*."""
+    """Column widths from ratios (relative weights, not cm), rule thickness from table.rule_pt/
+    header_rule_pt, font/size/bold/colour of header and body from styles.table_header/
+    table_body. markup=True: cells may contain **bold**/*italic*."""
     tcfg = cfg.get("table", {})
     header_sc = style_cfg(cfg, "table_header")
     body_sc = style_cfg(cfg, "table_body")
@@ -405,8 +405,8 @@ def render_table(cfg, header, rows, ratios=None, aligns=None, empty_cell=None, c
         f"  columns: ({columns}),",
         "  stroke: none,",
         f"  table.hline(stroke: {rule_pt}pt),",
-        # table.header() ripete la riga (e la regola sotto) su ogni pagina in
-        # cui la tabella si spezza - come set_repeat_header() del renderer DOCX.
+        # table.header() repeats the row (and the rule below it) on every page where
+        # the table splits - like set_repeat_header() of the DOCX renderer.
         "  table.header(",
         "    " + ", ".join(header_cells) + ",",
         "  ),",
@@ -415,7 +415,7 @@ def render_table(cfg, header, rows, ratios=None, aligns=None, empty_cell=None, c
     lines += ["  " + row_str + "," for row_str in body_cell_rows]
     lines.append(f"  table.hline(stroke: {rule_pt}pt),")
     lines.append(")")
-    # nelle celle niente giustificazione ne' sillabazione (colonne strette: spazi e trattini strani)
+    # no justification nor hyphenation in cells (narrow columns: odd spaces and hyphens)
     table = "#[#set par(justify: false)\n#set text(hyphenate: false)\n" + "\n".join(lines) + "\n]"
     if caption:
         cap_sc = style_cfg(cfg, "caption")
@@ -429,11 +429,11 @@ def render_table(cfg, header, rows, ratios=None, aligns=None, empty_cell=None, c
 
 
 # --------------------------------------------------------------------------
-# Preambolo (pagina, font, controfigura numerazione)
+# Preamble (page, font, numbering counterpart)
 # --------------------------------------------------------------------------
 def footnote_markup(cfg):
-    """Stile delle note (styles.footnote, ripiego su normal, ma piu' piccolo): corpo, interlinea,
-    separatore breve sopra le note."""
+    """Style of notes (styles.footnote, falling back to normal, but smaller): size, leading,
+    short separator above the notes."""
     sc = style_cfg(cfg, "footnote", fallback="normal")
     weight = "bold" if sc["bold"] else "regular"
     return (f'#show footnote.entry: it => {{\n'
@@ -447,7 +447,7 @@ def footnote_markup(cfg):
 
 
 def page_margins_io(pg):
-    """(interno, esterno) in cm: margin_interior/margin_exterior, altrimenti margin_left/right_cm."""
+    """(interior, exterior) in cm: margin_interior/margin_exterior, otherwise margin_left/right_cm."""
     return (pg.get("margin_interior", pg.get("margin_left_cm", 2.5)),
             pg.get("margin_exterior", pg.get("margin_right_cm", 2.5)))
 
@@ -463,10 +463,10 @@ def preamble(cfg, with_header=True, header_only=False):
     margin_interior, margin_exterior = page_margins_io(pg)
     normal = style_cfg(cfg, "normal")
     normal_justify = normal["align"] == "justify"
-    # In Typst, par.spacing e' l'INTERO spazio fra i riquadri di riga di due
-    # paragrafi (sostituisce il leading, non lo integra). Per avere lo stesso
-    # passo di Word (line_height + space_before + space_after) ci si parte
-    # quindi dal leading, non dall'altezza di riga intera.
+    # In Typst, par.spacing is the WHOLE space between the line boxes of two
+    # paragraphs (it replaces the leading, it does not add to it). To get the same
+    # pitch as Word (line_height + space_before + space_after) one therefore starts
+    # from the leading, not from the full line height.
     spacing_pt = round(leading_pt(normal) + normal["space_before"] + normal["space_after"], 2)
 
     hcfg = cfg.get("header", {})
@@ -481,17 +481,17 @@ def preamble(cfg, with_header=True, header_only=False):
         title_weight = "bold" if title_sc["bold"] else "regular"
         pn_weight = "bold" if pn_sc["bold"] else "regular"
         default_title = esc_str(hcfg.get("title", ""))
-        # Specchiata fra pagine dispari e pari, come in build.py: il titolo
-        # (da config) verso l'interno (rilegatura), il numero di pagina verso
-        # l'esterno. Dispari: titolo a sinistra, numero a destra. Pari:
-        # numero a sinistra, titolo a destra. Una riga sotto, come in build.py.
+        # Mirrored between odd and even pages, as in build.py: the title
+        # (from config) towards the inside (binding), the page number towards
+        # the outside. Odd: title on the left, number on the right. Even:
+        # number on the left, title on the right. One line below, as in build.py.
         header_markup = (
             f'#counter(page).update({start_page})\n'
             f'#set page(header: context {{\n'
             f'  let pg = counter(page).get().first()\n'
             f'  let odd = calc.rem(pg, 2) == 1\n'
-            # titolo = capitolo che inizia in questa pagina, altrimenti l'ultimo iniziato prima
-            # (segnaposto <chapter-start> emessi dal renderer); default = header.title
+            # title = the chapter that starts on this page, otherwise the last one started before
+            # (<chapter-start> placeholders emitted by the renderer); default = header.title
             f'  let starts = query(<chapter-start>)\n'
             f'  let here-page = here().page()\n'
             f'  let on-page = starts.filter(m => m.location().page() == here-page)\n'
@@ -499,7 +499,7 @@ def preamble(cfg, with_header=True, header_only=False):
             f'  let cur-start = if on-page.len() > 0 {{ on-page.first().value }} '
             f'else if before.len() > 0 {{ before.last().value }} else {{ (title: "{default_title}", left: none) }}\n'
             f'  let cur = cur-start.title\n'
-            # pagine pari (sinistre): autore (header.left_pages), se manca/"title" come le destre
+            # even (left) pages: author (header.left_pages), if missing/"title" like the right ones
             f'  let cur-left = if cur-start.left != none {{ cur-start.left }} else {{ cur }}\n'
             f'  let title-style = it => text(font: "{title_sc["font"]}", size: {title_sc["size"]}pt, '
             f'weight: "{title_weight}", style: "{"italic" if title_sc["italic"] else "normal"}", it)\n'
@@ -511,7 +511,7 @@ def preamble(cfg, with_header=True, header_only=False):
             f'else [#num-part #h(1fr) #left-part]\n'
             f'  let ends = query(<chapter-end>).map(m => m.location().page())\n'
             f'  let start-pages = starts.map(m => m.location().page())\n'
-            # pagina vuota inserita per far iniziare il capitolo a destra: dopo una fine capitolo e prima del prossimo inizio
+            # blank page inserted to make the chapter start on the right: after a chapter end and before the next start
             f'  let blank = ends.any(e => e < here-page and start-pages.filter(sp => sp > e).fold(1000000, calc.min) > here-page)\n'
             f'  let hide = ({"true" if hcfg.get("skip_chapter_first_page", True) else "false"} and on-page.len() > 0) or blank\n'
             f'  block(width: 100%)[#if not hide [\n'
@@ -546,25 +546,25 @@ def preamble(cfg, with_header=True, header_only=False):
 
 
 def chapter_break(cfg):
-    """Salto pagina prima di un capitolo. Con page.chapter_start = "right" (default) il capitolo inizia
-    sempre in una pagina destra (dispari): se cadrebbe a sinistra Typst inserisce una pagina vuota
-    (pagebreak to: "odd"); l'intestazione la riconosce e non la stampa (vedi header_markup: e' una pagina
-    compresa fra <chapter-end> e il <chapter-start> successivo). La numerazione la conta come ogni altra pagina."""
+    """Page break before a chapter. With page.chapter_start = "right" (default) the chapter always starts
+    on a right-hand (odd) page: if it would fall on the left Typst inserts a blank page
+    (pagebreak to: "odd"); the running head recognises it and does not print it (see header_markup: it is a page
+    between <chapter-end> and the next <chapter-start>). The numbering counts it like any other page."""
     if cfg.get("page", {}).get("chapter_start", "right") != "right":
         return "#pagebreak(weak: true)"
     return '#metadata(none) <chapter-end>\n#pagebreak(weak: true, to: "odd")'
 
 
 def toc_entry_rule(cfg, gap_cm, authors=True):
-    """Voci dell'indice: il testo va a capo almeno gap_cm prima del numero di pagina (il testo sta in una
-    colonna, il numero in un'altra preceduta da gap_cm vuoti), con i puntini di guida continui fino al numero.
-    Se authors: sotto la voce di un capitolo con autori, una riga con i loro nomi (stile `toc_author`)."""
+    """Table of contents entries: the text wraps at least gap_cm before the page number (the text sits in one
+    column, the number in another preceded by gap_cm of empty space), with continuous leader dots up to the number.
+    If authors: under the entry of a chapter with authors, a line with their names (style `toc_author`)."""
     sc = style_cfg(cfg, "toc_author", fallback="chapter_author")
     rule = ('#show outline.entry: it => {\n'
             '  let entry = link(it.element.location(), pad(left: (it.level - 1) * 1em, grid(\n'
             '    columns: (1fr, auto), align: (left, right + bottom),\n'
-            # i puntini sono un unico riempimento: la box da 1fr e' allargata di gap_cm (sconfina nello
-            # spazio vuoto davanti al numero di pagina) e si ferma poco prima del numero
+            # the dots are a single fill: the 1fr box is widened by gap_cm (it spills into the
+            # empty space before the page number) and stops just before the number
             f'    [#it.body()#box(width: 1fr, layout(size => box(width: size.width + {gap_cm}cm - 0.5em, it.fill)))],\n'
             f'    [#h({gap_cm}cm)#it.page()])))\n')
     if not authors:
@@ -577,9 +577,9 @@ def toc_entry_rule(cfg, gap_cm, authors=True):
 
 
 def list_of_figures_markup(cfg, lof):
-    """Elenco di tutte le figure con didascalia (anche piante e figure di fine scheda), nell'ordine del
-    volume. E' un apparato di consultazione: corpo ridotto, due colonne, voci compatte con il numero di
-    pagina in coda alla didascalia (dopo `separator`), senza puntini di guida."""
+    """List of all figures with a caption (also plans and end-of-entry figures), in the order of the
+    volume. It is a reference apparatus: reduced size, two columns, compact entries with the page number at
+    the end of the caption (after `separator`), without leader dots."""
     size = lof.get("size", 8)
     sep = esc(str(lof.get("separator", ": ")))
     ncol = int(lof.get("columns", 2))
@@ -599,11 +599,11 @@ def list_of_figures_markup(cfg, lof):
 
 
 def heading_markup(cfg, style_name, text, level=None, authors=None, anchor=None):
-    """Spazio sopra/sotto esplicito (v()), non affidato allo spazio 'ambientale'
-    fra blocchi di Typst: quello varia a seconda di cosa precede (una colonna
-    bilanciata corta o uno scorrimento naturale lungo danno spaziature diverse
-    anche con lo stesso stile), mentre qui due titoli con lo stesso stile
-    devono avere sempre la stessa spaziatura."""
+    """Explicit space above/below (v()), not left to Typst's 'ambient' spacing
+    between blocks: that varies depending on what precedes (a short balanced
+    column or a long natural flow give different spacings
+    even with the same style), whereas here two headings with the same style
+    must always have the same spacing."""
     sc = style_cfg(cfg, style_name)
     weight = "bold" if sc["bold"] else "regular"
     hyph = "true" if cfg.get("typography", {}).get("hyphenate", False) else "false"
@@ -613,15 +613,15 @@ def heading_markup(cfg, style_name, text, level=None, authors=None, anchor=None)
     heading = (f'#align({typst_align(sc["align"])})[#par(leading: {leading_pt(sc)}pt, justify: {"true" if sc["align"] == "justify" else "false"})'
               f'[#text(font: "{sc["font"]}", size: {sc["size"]}pt, weight: "{weight}", hyphenate: {hyph}, '
               f'fill: {typst_color(sc["color"])})[{content}]]]')
-    # titolo "vero" (nascosto, fuori flusso) per l'indice #outline e i segnalibri del PDF: quello
-    # visibile e' impaginato a mano (stili, spaziatura). level=None: non compare nell'indice.
-    # authors: finiscono nel "supplement" del titolo, da cui l'indice li legge (vedi toc_authors_rule)
+    # "real" heading (hidden, out of flow) for the #outline table of contents and the PDF bookmarks: the
+    # visible one is typeset by hand (styles, spacing). level=None: it does not appear in the table of contents.
+    # authors: go into the heading's "supplement", from which the table of contents reads them (see toc_authors_rule)
     supp = f"[{esc(', '.join(authors))}]" if authors else "none"
-    lab = f"<{anchor}>" if anchor else ""     # destinazione dei link tra capitoli
+    lab = f"<{anchor}>" if anchor else ""     # destination of the links between chapters
     real = (f'#place(hide[#heading(level: {level}, outlined: true, bookmarked: true, numbering: none, '
             f'supplement: {supp})[{esc(text)}]{lab}])\n' if level else "")
     return (real + f'#v({sc["space_before"]}pt, weak: true)\n'
-            # sticky: il titolo non resta mai solo in fondo a una colonna/pagina
+            # sticky: the heading never stays alone at the bottom of a column/page
             f'#block(sticky: true, width: 100%)[{heading}\n#v({sc["space_after"]}pt)]')
 
 
@@ -631,18 +631,18 @@ def heading_markup(cfg, style_name, text, level=None, authors=None, anchor=None)
 
 
 # --------------------------------------------------------------------------
-# Volume -> sorgente .typ -> PDF
+# Volume -> .typ source -> PDF
 # --------------------------------------------------------------------------
 class Wrap:
-    """Figura con testo che le scorre intorno (position left/right): la figura + i primi
-    paragrafi del testo che segue (pacchetto Typst wrap-it)."""
+    """Figure with text flowing around it (position left/right): the figure + the first
+    paragraphs of the text that follows (Typst package wrap-it)."""
     def __init__(self, fig, paras):
         self.fig, self.paras = fig, paras
 
 
 def wrap_pass(blocks, flow):
-    """Fonde ogni Figure con position left/right con il Text che la segue (a 1 colonna e nel
-    flusso a colonne); il resto del Text (oltre `wrap` paragrafi) resta un Text normale."""
+    """Merges each Figure with position left/right with the Text that follows it (in 1 column and in the
+    column flow); the rest of the Text (beyond `wrap` paragraphs) stays a normal Text."""
     out, i = [], 0
     while i < len(blocks):
         b = blocks[i]
@@ -661,15 +661,15 @@ def wrap_pass(blocks, flow):
 
 
 class TextFlow:
-    """Testi a due colonne separati solo da sottotitoli (es. descrizione + Material Culture): un
-    unico blocco di colonne bilanciate, cosi' il flusso sinistra/destra non si spezza al titolo."""
+    """Two-column texts separated only by subheadings (e.g. description + Material Culture): a
+    single block of balanced columns, so the left/right flow does not break at the heading."""
     def __init__(self, items):
         self.items = items
 
 
 def group_text_flow(blocks, min_level):
-    """Raggruppa Text(columns>1) [Heading(level >= min_level) Text(columns>1)]* in un TextFlow.
-    Un titolo che non e' seguito da un testo a colonne (es. quello della tabella) resta fuori."""
+    """Groups Text(columns>1) [Heading(level >= min_level) Text(columns>1)]* into a TextFlow.
+    A heading not followed by a multi-column text (e.g. a table's) stays outside."""
     def col_text(b):
         return isinstance(b, model.Text) and b.columns > 1 and b.text.strip()
     out, i = [], 0
@@ -716,11 +716,11 @@ def build_source(cfg, volume):
     uses_wrap = []
 
     def float_fig(f, in_flow, col_w_cm):
-        """Nel flusso a colonne la figura fluttua a piena larghezza (in cima/in fondo alla pagina,
-        scope 'parent'): il testo continua a riempire le colonne, senza buchi. Fuori dal flusso
-        e' un blocco normale con lo spazio sopra/sotto. Attributi per figura (Markdown):
-        width/height (dimensioni esplicite), position = auto|top|bottom (a piena larghezza),
-        column (dentro la colonna); left/right sono gestite da Wrap."""
+        """In the column flow the figure floats at full width (at the top/bottom of the page,
+        scope 'parent'): the text keeps filling the columns, without gaps. Outside the flow
+        it is a normal block with space above/below. Per-figure attributes (Markdown):
+        width/height (explicit dimensions), position = auto|top|bottom (full width),
+        column (inside the column); left/right are handled by Wrap."""
         pos = f.position or "auto"
         in_col = pos in ("column", "left", "right")
         ref = col_w_cm if (in_flow and in_col) else usable_cm
@@ -729,8 +729,8 @@ def build_source(cfg, volume):
             return render_image(cfg, f.path, f.caption, max_w_cm, max_h_cm,
                                 space_before_pt=fig_before, space_after_pt=fig_after,
                                 width_cm=w_cm, height_cm=h_cm)
-        # flow_max_height_cm: tetto all'altezza delle figure fluttuanti, cosi' che due figure sulla
-        # stessa pagina (una in cima, una in fondo) lascino comunque spazio al testo
+        # flow_max_height_cm: ceiling on the height of floating figures, so that two figures on the
+        # same page (one at the top, one at the bottom) still leave room for text
         flow_h = icfg.get("flow_max_height_cm", max_h_cm)
         gap = max((fig_before or 0), (fig_after or 0), 10)
         if in_col:
@@ -748,20 +748,20 @@ def build_source(cfg, volume):
         width = model.length_cm(f.width, col_w_cm) or icfg.get("wrap_width_cm", 5.0)
         body = render_image(cfg, f.path, f.caption, col_w_cm, 1000, width_cm=min(width, col_w_cm),
                             height_cm=model.length_cm(f.height, col_w_cm))
-        # rientranza esplicita (#h) a ogni paragrafo, senza #set par: wrap-it spezza il testo e il #set
-        # finiva sul pezzo sbagliato (primo paragrafo senza rientranza, continuazione con rientranza)
+        # explicit indent (#h) on every paragraph, without #set par: wrap-it splits the text and the #set
+        # ended up on the wrong piece (first paragraph without indent, continuation with indent)
         pre = f"#h({indent}pt)" if indent else ""
         text = "\n\n".join(pre + t for t in render_paragraphs(w.paras).split("\n\n"))
-        # colonne esplicite: con due colonne auto, se figura larga + testo superano lo spazio la griglia
-        # restringe la colonna della figura e l'immagine (a larghezza fissa) sborda sul testo
+        # explicit columns: with two auto columns, if a wide figure + text exceed the space the grid
+        # narrows the figure's column and the image (of fixed width) overflows onto the text
         cols = "(1fr, auto)" if f.position == "right" else "(auto, 1fr)"
         return (f'#wrap-content(align: {f.position}, columns: {cols}, column-gutter: {icfg.get("wrap_gutter_pt", 12)}pt, '
                 f'[{body}], [{text}])')
 
     parts = [preamble(cfg, with_header=not volume.front)]
     if volume.front:
-        # frontespizio e colophon: senza intestazione ne' numero; l'indice (o il primo capitolo) parte su pagina
-        # destra e li' la numerazione riparte da start_page, come senza frontmatter
+        # title page and colophon: without running head nor number; the table of contents (or the first chapter) starts on a right-hand
+        # page and the numbering restarts there from start_page, as without frontmatter
         for fi, fch in enumerate(volume.front):
             if fi > 0:
                 parts.append("#pagebreak()")
@@ -783,8 +783,8 @@ def build_source(cfg, volume):
         parts.append(preamble(cfg, header_only=True))
     toc = volume.meta.get("toc") or {}
     if toc.get("enabled"):
-        # titolo dell'indice impaginato a mano (stile h2, fuori dall'indice); voci con font del testo
-        parts.append('#metadata((title: "", left: "")) <chapter-start>')      # pagina senza intestazione corrente
+        # table of contents title typeset by hand (h2 style, outside the table of contents); entries with the text font
+        parts.append('#metadata((title: "", left: "")) <chapter-start>')      # page without a running head
         parts.append(heading_markup(cfg, heading_style(cfg, 2), toc.get("title", "Contents")))
         parts.append(toc_entry_rule(cfg, toc.get("page_gap_cm", 1.5), authors=toc.get("authors", True)))
         parts.append(f'#outline(title: none, depth: {toc.get("depth", 2)}, indent: 1em)\n{chapter_break(cfg)}')
@@ -792,19 +792,19 @@ def build_source(cfg, volume):
         starts_with_part = bool(ch.blocks) and isinstance(ch.blocks[0], model.PartTitle)
         if i > 0 and ch.new_page:
             parts.append(chapter_break(cfg))
-        # segnaposto letto dall'intestazione corrente: titolo del capitolo che inizia in questa pagina
+        # placeholder read by the running head: title of the chapter that starts on this page
         running = "" if starts_with_part else (ch.running_title or ch.title)
         left = None if starts_with_part else model.running_left(ch, volume, cfg.get("header", {}))
         left_typ = "none" if left is None else f'"{esc_str(left)}"'
         parts.append(f'#metadata((title: "{esc_str(running)}", left: {left_typ})) <chapter-start>')
-        # column_flow > 1: dopo il titolo, testo/titoli/citazioni/elenchi scorrono in un unico
-        # flusso a colonne; figure e tabelle lo interrompono e occupano tutta la larghezza.
+        # column_flow > 1: after the heading, text/headings/quotations/lists flow in a single
+        # column flow; figures and tables interrupt it and take the whole width.
         flow = ch.column_flow if ch.column_flow > 1 else 0
         chunk = []
 
         def flush_flow():
             if chunk:
-                # place.flush: le figure ancora "in volo" vanno prima della fine del blocco
+                # place.flush: figures still "in flight" go before the end of the block
                 parts.append(f'#columns({flow}, gutter: {gutter_cm}cm)[\n' + "\n\n".join(chunk)
                              + '\n#place.flush()\n]')
                 chunk.clear()
@@ -815,14 +815,14 @@ def build_source(cfg, volume):
             pass_blocks = group_text_flow(pass_blocks, tcfg.get("flow_heading_min_level", 3))
         for k, b in enumerate(pass_blocks):
             full_width = isinstance(b, model.PartTitle) or (
-                isinstance(b, model.Table) and (len(b.rows) > 20 or table_classes.get(b.klass, {}).get("full_width", False)))   # le figure fluttuano (vedi float_fig)
-            in_flow = bool(flow) and k > 0 and not full_width    # k=0: titolo del capitolo
+                isinstance(b, model.Table) and (len(b.rows) > 20 or table_classes.get(b.klass, {}).get("full_width", False)))   # figures float (see float_fig)
+            in_flow = bool(flow) and k > 0 and not full_width    # k=0: chapter title
             if flow and full_width:
                 flush_flow()
             out = chunk if in_flow else parts
             if isinstance(b, model.Heading):
                 pb = "#pagebreak()\n" if b.page_break_before else ""
-                opener = k == 0 and b.level == 1     # titolo h1 di capitolo: parte a offset_pct della pagina
+                opener = k == 0 and b.level == 1     # chapter h1 title: starts at offset_pct of the page
                 if opener:
                     out.append(f'#v({cfg.get("chapter_opener", {}).get("offset_pct", 33)}%)')
                 out.append(f"{pb}{heading_markup(cfg, heading_style(cfg, b.level), b.text, level=b.level, authors=ch.authors if k == 0 else None, anchor=model.chapter_anchor(ch.id) if k == 0 else (model.chapter_anchor(b.anchor) if b.anchor else None))}")
@@ -832,7 +832,7 @@ def build_source(cfg, volume):
                                f'font: "{asc["font"]}", size: {asc["size"]}pt, '
                                f'fill: {typst_color(asc["color"])})[{esc(", ".join(ch.authors))}]]\n#v(12pt)')
             elif isinstance(b, model.Bibliography):
-                out.append("#place.flush()")     # prima le figure ancora in attesa, poi la bibliografia
+                out.append("#place.flush()")     # first the figures still waiting, then the bibliography
                 out.append(heading_markup(cfg, heading_style(cfg, b.level), b.title))
                 out.append(render_bibliography(cfg, b))
             elif isinstance(b, model.StyledText):
@@ -869,8 +869,8 @@ def build_source(cfg, volume):
                 else:
                     out.append(render_flow_text(b.text, indent_pt))
             elif isinstance(b, model.Figure) and b.klass in fig_classes:
-                # Classe di figura (images.classes.<nome>): larghezza scollegata da images.max_width_cm/
-                # max_height_cm (width_pct della larghezza utile), altezza libera secondo le proporzioni.
+                # Figure class (images.classes.<name>): width decoupled from images.max_width_cm/
+                # max_height_cm (width_pct of the usable width), free height according to the proportions.
                 fc = fig_classes[b.klass]
                 out.append(render_image(cfg, b.path, b.caption, usable_cm * fc.get("width_pct", 100) / 100, 1000,
                                           space_before_pt=fc.get("space_before_pt", fig_before),
@@ -880,11 +880,11 @@ def build_source(cfg, volume):
             elif isinstance(b, model.Figure):
                 out.append(float_fig(b, in_flow, col_w_cm))
             elif isinstance(b, model.Table):
-                tc = table_classes.get(b.klass, {})      # classe di tabella: table.classes.<nome>
+                tc = table_classes.get(b.klass, {})      # table class: table.classes.<name>
                 tbl = render_table(cfg, b.header, b.rows, ratios=tc.get("col_ratios") or b.ratios, aligns=b.aligns,
                                    caption=b.caption, empty_cell=tc.get("empty_cell", empty_cell),
                                    markup=tc.get("markup", True))
-                if in_flow and len(b.rows) <= 20:      # tabelle brevi: fluttuano a piena larghezza
+                if in_flow and len(b.rows) <= 20:      # short tables: they float at full width
                     tbl = (f'#place(auto, scope: "parent", float: true, clearance: 12pt)[\n{tbl}\n]')
                 out.append(tbl)
                 out.append(f"#v({table_after}pt)" if not (in_flow and len(b.rows) <= 20) else "")
@@ -909,7 +909,7 @@ def build_source(cfg, volume):
 
 
 def write_and_compile(source, out_dir, out_name, compile_pdf=True, keep_typ=False):
-    """Scrive il PDF in out_dir. Il .typ resta solo con keep_typ / --no-pdf, o se la compilazione fallisce."""
+    """Writes the PDF in out_dir. The .typ is kept only with keep_typ / --no-pdf, or if compilation fails."""
     out_dir.mkdir(parents=True, exist_ok=True)
     if not compile_pdf:
         typ_path = out_dir / f"{out_name}.typ"

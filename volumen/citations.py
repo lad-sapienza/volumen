@@ -1,8 +1,8 @@
-"""Citazioni bibliografiche stile Pandoc (`[@chiave, 49]`, `@chiave`) risolte con `pandoc --citeproc`.
+"""Pandoc-style bibliographic citations (`[@key, 49]`, `@key`) resolved with `pandoc --citeproc`.
 
-Tutte le citazioni del volume passano da UNA sola esecuzione di pandoc: cosi' la
-disambiguazione autore-data (2020a/2020b) e' coerente in tutto il volume. Ogni capitolo riceve
-poi la propria bibliografia (solo le opere che cita), gia' formattata dallo stile CSL."""
+All the citations of the volume go through ONE single run of pandoc: this way the
+author-date disambiguation (2020a/2020b) is consistent across the whole volume. Each chapter then
+receives its own bibliography (only the works it cites), already formatted by the CSL style."""
 import re
 import shutil
 import subprocess
@@ -14,21 +14,21 @@ from . import model
 
 KEY = r"[\w](?:[\w:.\-]*[\w])?"
 BRACKET = re.compile(r"\[(?:[^\[\]]*?)(?<![\w])-?@" + KEY + r"[^\[\]]*\]")      # [@a, 30; @b]
-BARE = re.compile(r"(?<![\w@/\[\\])@(" + KEY + ")")                            # @chiave (narrativa)
+BARE = re.compile(r"(?<![\w@/\[\\])@(" + KEY + ")")                            # @key (narrative)
 KEYS_IN = re.compile(r"(?<![\w])-?@(" + KEY + ")")
 URL = re.compile(r"https?://[^\s)\]>]+")
 UNESC = re.compile(r"\\([\\`{}\[\]()#+.!|<>~^$_*'\"@-])")
 
 
 def clusters_in(text):
-    """Citazioni presenti in un testo: prima le forme fra parentesi quadre, poi le narrative."""
+    """Citations present in a text: first the forms in square brackets, then the narrative ones."""
     found = [m.group(0) for m in BRACKET.finditer(text)]
     rest = BRACKET.sub(" ", text)
     found += [m.group(0) for m in BARE.finditer(rest)]
     return found
 
 
-SEPARATOR_TYPO = re.compile(r",\s*(?=-?@)")   # `, @chiave`: pandoc vuole `;` fra due citazioni
+SEPARATOR_TYPO = re.compile(r",\s*(?=-?@)")   # `, @key`: pandoc wants `;` between two citations
 
 
 def replace_clusters(text, table):
@@ -39,29 +39,29 @@ def replace_clusters(text, table):
 
 
 def _break_urls(s):
-    """Permette l'a-capo negli URL lunghi (spazio di larghezza zero dopo / . - _ ?)."""
+    """Allows line breaks in long URLs (zero-width space after / . - _ ?)."""
     return URL.sub(lambda m: re.sub(r"([/.\-_?&=])", "\\1\u200b", m.group(0)), s)
 
 
 def _clean(md):
-    """Testo restituito da pandoc (markdown) -> testo per i renderer."""
+    """Text returned by pandoc (markdown) -> text for the renderers."""
     md = re.sub(r"<(https?://[^>\s]+)>", r"\1", md)              # <url> -> url
-    md = re.sub(r"\[([^\]]+)\]\((https?://[^)]+)\)", r"\1", md)    # [testo](url) -> testo
+    md = re.sub(r"\[([^\]]+)\]\((https?://[^)]+)\)", r"\1", md)    # [text](url) -> text
     md = UNESC.sub(r"\1", md)
     return _break_urls(" ".join(md.split()))
 
 
 def process(volume, bib_path, csl_path, an, lang="en-US", title="References"):
-    """Sostituisce le citazioni nei testi e aggiunge a ogni capitolo la sua bibliografia."""
+    """Replaces the citations in the texts and adds to each chapter its bibliography."""
     if not shutil.which("pandoc"):
         sys.exit("pandoc not found: it is needed for bibliographic citations (brew install pandoc).")
     bib_path = Path(bib_path)
     if not bib_path.exists():
         sys.exit(f"Bibliography file not found: {bib_path}")
 
-    # 1. citazioni per capitolo
+    # 1. citations per chapter
     per_chapter = []                 # [(chapter, set(cluster))]
-    all_clusters = {}                # cluster -> indice
+    all_clusters = {}                # cluster -> index
     for ch in volume.chapters:
         found = set()
 
@@ -76,7 +76,7 @@ def process(volume, bib_path, csl_path, an, lang="en-US", title="References"):
     if not all_clusters:
         return
 
-    # 2. un solo documento pandoc: un paragrafo per citazione
+    # 2. a single pandoc document: one paragraph per citation
     ordered = sorted(all_clusters, key=all_clusters.get)
     with tempfile.TemporaryDirectory() as tmp:
         src = Path(tmp) / "cit.md"
@@ -91,7 +91,7 @@ def process(volume, bib_path, csl_path, an, lang="en-US", title="References"):
     if r.returncode != 0:
         sys.exit(f"pandoc --citeproc failed:\n{r.stderr[:1500]}")
 
-    # 3. chiavi mancanti (segnalate) e output
+    # 3. missing keys (reported) and output
     missing = set(re.findall(r"citation (\S+) not found", r.stderr))
     m_refs = re.search(r"^:{3,} \{#refs", r.stdout, re.M)
     body, refs = (r.stdout[:m_refs.start()], r.stdout[m_refs.start():]) if m_refs else (r.stdout, "")
@@ -105,7 +105,7 @@ def process(volume, bib_path, csl_path, an, lang="en-US", title="References"):
         entries[m.group(1)] = _clean(m.group(2))
         order.append(m.group(1))
 
-    # 4. sostituzione nei testi + bibliografia per capitolo
+    # 4. substitution in the texts + bibliography per chapter
     for ch, found in per_chapter:
         if not found:
             continue

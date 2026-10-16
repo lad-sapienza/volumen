@@ -1,4 +1,4 @@
-"""Punto d'ingresso unico: composizione e stile (volume.md) -> PDF (Typst) / DOCX."""
+"""Single entry point: composition and style (volume.md) -> PDF (Typst) / DOCX."""
 import argparse
 import json
 import os
@@ -40,8 +40,8 @@ def load_volume(path):
 
 
 def find_volume(args):
-    """Dove stanno i contenuti: --volume, poi VOLUMEN_NOTE, poi il file `.volume` del progetto (una riga: il percorso,
-    ignorato da git), poi volume.md nella cartella corrente."""
+    """Where the content is: --volume, then VOLUMEN_NOTE, then the project's `.volume` file (one line: the path,
+    ignored by git), then volume.md in the current folder."""
     marker = HERE / ".volume"
     wanted = (args.volume or os.environ.get("VOLUMEN_NOTE")
               or (marker.read_text(encoding="utf-8").strip() if marker.exists() else None)
@@ -51,8 +51,8 @@ def find_volume(args):
 
 
 def load_project(args):
-    """-> (cfg, percorso di volume.md, contenuto, cartella di volume.md). Lo stile viene dai blocchi yaml della nota;
-    le anomalie della composizione stanno in vol['_anomalie']."""
+    """-> (cfg, path of volume.md, content, folder of volume.md). The style comes from the yaml blocks of the note;
+    the composition anomalies are in vol['_anomalie']."""
     vol_path = find_volume(args)
     vol, warnings = load_volume(vol_path)
     vol["_anomalie"] = warnings
@@ -61,8 +61,8 @@ def load_project(args):
 
 
 def output_dir(args, vol, base_dir):
-    """Cartella di output: --out (relativa alla cartella corrente), poi `output_dir` della nota (relativa alla nota),
-    poi out/ accanto alla nota."""
+    """Output folder: --out (relative to the current folder), then the note's `output_dir` (relative to the note),
+    then out/ next to the note."""
     if args.out:
         out_dir = Path(args.out).expanduser()
         return out_dir if out_dir.is_absolute() else Path.cwd() / out_dir
@@ -104,7 +104,7 @@ def main(argv=None, default_format="typst"):
                          "anomaly counts; with --list-chapters the chapter list), everything else goes to stderr")
     args = ap.parse_args(argv)
     json_out = None
-    if args.json:                 # stdout riservato al JSON: anche l'output dei programmi figli (typst) va su stderr
+    if args.json:                 # stdout reserved for the JSON: the output of child programs (typst) goes to stderr too
         json_out = os.fdopen(os.dup(1), "w", encoding="utf-8")
         os.dup2(2, 1)
         sys.stdout = sys.stderr
@@ -127,7 +127,7 @@ def main(argv=None, default_format="typst"):
         def show(chs, depth=0):
             for c in chs:
                 title = c.get("title", "")
-                if not title and c.get("file") and Path(c["file"]).is_file():     # il titolo e' quello del file
+                if not title and c.get("file") and Path(c["file"]).is_file():     # the title is the file's
                     title = markdown.split_frontmatter(Path(c["file"]).read_text(encoding="utf-8"))[0].get("title", "")
                 kind = c.get("source", "contenitore")
                 rows.append({"id": str(c.get("id", "?")), "title": title, "source": kind, "depth": depth,
@@ -156,13 +156,13 @@ def main(argv=None, default_format="typst"):
     if wanted and not args.name:
         out_name = f"{out_name}-" + "_".join(sorted(wanted)).replace(".", "-")
 
-    chapter_ids = {}                  # nome file (senza .md) -> id, per i link [[nome-file]]
+    chapter_ids = {}                  # file name (without .md) -> id, for the [[file-name]] links
 
     def collect_files(chs):
         for c in chs:
             if c.get("file"):
                 chapter_ids[Path(str(c["file"])).stem] = str(c.get("id", ""))
-            if c.get("source") == "folder":      # link [testo](F1-01.md): una voce per file
+            if c.get("source") == "folder":      # link [text](F1-01.md): one entry per file
                 chapter_ids.update(folder.card_ids({"sources": vol.get("sources", {}), **c}, base_dir))
             collect_files(c.get("chapters", []))
     collect_files(vol.get("chapters", []))
@@ -170,20 +170,20 @@ def main(argv=None, default_format="typst"):
     an = Anomalies()
     for row in vol.get("_anomalie", []):
         an.add(*row)
-    an_hidden = Anomalies()           # anomalie dei capitoli caricati solo per le citazioni (non impaginati)
+    an_hidden = Anomalies()           # anomalies of the chapters loaded only for the citations (not typeset)
     chapters, n_included, excluded = [], 0, []
-    hidden = []                       # capitoli Markdown non selezionati (servono alle citazioni)
+    hidden = []                       # Markdown chapters not selected (needed for the citations)
     has_bib = bool(vol.get("sources", {}).get("bibliography"))
 
     auto_number = bool(cfg.get("chapter_numbering", True))
 
     def number_label(ch, title):
-        """Numero da anteporre al titolo ("6." per i capitoli, "6.1" per i sotto-capitoli), oppure
-        "" se la numerazione e' disattivata (config `chapter_numbering`, per capitolo `numbered: false`),
-        manca l'id o il titolo e' gia' numerato a mano."""
+        """Number to put before the title ("6." for chapters, "6.1" for sub-chapters), or
+        "" if numbering is off (config `chapter_numbering`, per chapter `numbered: false`),
+        the id is missing or the title is already numbered by hand."""
         cid = str(ch.get("id", "")).strip()
         if not (auto_number and ch.get("numbered", True) and re.fullmatch(r"\d+(\.\d+)*", cid) and title):
-            return ""        # id non numerico ({id=preface}): fuori dalla numerazione
+            return ""        # non-numeric id ({id=preface}): outside the numbering
         if title.startswith(cid) and not title[len(cid):len(cid) + 1].isalnum():
             return ""
         return cid + ("." if "." not in cid else "")
@@ -200,8 +200,8 @@ def main(argv=None, default_format="typst"):
         return chapter
 
     def load(ch, level, inherited=False):
-        """Carica un capitolo (o un contenitore con figli); level = livello base dei titoli;
-        inherited = un contenitore antenato e' stato scelto con --chapter (include i figli)."""
+        """Loads a chapter (or a container with children); level = base level of the headings;
+        inherited = an ancestor container was chosen with --chapter (it includes the children)."""
         nonlocal n_included
         ch = {"sources": vol.get("sources", {}), "chapter_level": level, "chapter_ids": chapter_ids, **ch}
         kind = ch.get("source")
@@ -209,7 +209,7 @@ def main(argv=None, default_format="typst"):
         if ch.get("chapters") and ch.get("title"):
             label = number_label(ch, str(ch["title"]))
             ch = {**ch, "title": f"{label} {ch['title']}" if label else ch["title"]}
-        if ch.get("chapters"):                       # contenitore
+        if ch.get("chapters"):                       # container
             lvl = ch.get("base_level", level)
             if not chosen:
                 pass
@@ -224,7 +224,7 @@ def main(argv=None, default_format="typst"):
         elif not chosen and kind == "markdown" and has_bib:
             hidden.append(markdown.load_chapter(cfg, ch, base_dir, an_hidden))
         elif not chosen:
-            return                                   # non selezionato: non si carica (piu' veloce)
+            return                                   # not selected: not loaded (faster)
         elif kind == "folder":
             chapter, n, exc = folder.load_chapter(cfg, ch, base_dir, an, only=args.only)
             n_included += n
@@ -238,7 +238,7 @@ def main(argv=None, default_format="typst"):
     for ch in vol.get("chapters", []):
         load(ch, 1)
 
-    # frontmatter (frontespizio, colophon, ...): file Markdown prima dell'indice; non con --chapter
+    # frontmatter (title page, colophon, ...): Markdown files before the table of contents; not with --chapter
     front = []
     if not wanted:
         vars_ = {k: v for k, v in vol.items() if isinstance(v, (str, int, float))}
@@ -251,8 +251,8 @@ def main(argv=None, default_format="typst"):
 
     bib = vol.get("sources", {}).get("bibliography")
     if bib:
-        # con --chapter le citazioni si risolvono su TUTTO il volume (le lettere 2020a/2020b e la
-        # bibliografia restano identiche a quelle del volume completo); le anomalie solo dei selezionati
+        # with --chapter the citations are resolved over the WHOLE volume (the letters 2020a/2020b and the
+        # bibliography stay identical to those of the complete volume); anomalies only of the selected ones
         an_cit = Anomalies() if wanted else an
         citations.process(model.Volume(meta={}, chapters=chapters + hidden),
                           resolve_path(bib, {"sources": vol.get("sources", {})}, base_dir),
